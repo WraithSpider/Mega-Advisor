@@ -1,9 +1,9 @@
 //+------------------------------------------------------------------+
 //|                                        MEGA_ANALYSIS_Advisor.mq5 |
-//|                                   © Forex Assistant, Alan Norberg |
-//|                          Версия 6.1: Полная система с исправлением |
+//|                                  © Forex Assistant, Alan Norberg |
+//|                                                       Версия 3.7 |
 //+------------------------------------------------------------------+
-#property version "0.7"
+#property version "3.7"
 
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
