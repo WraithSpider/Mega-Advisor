@@ -60,88 +60,98 @@ void OnTick()
     CheckSmartBBands(long_score, short_score);
     CheckIchimoku(long_score, short_score);
     
+    // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
     if (total_score > 0)
     {
         double long_probability = (double)long_score / total_score * 100;
         double short_probability = (double)short_score / total_score * 100;
+        
         UpdateDashboard(long_score, short_score, long_probability, short_probability);
         
-        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.", _Symbol, EnumToString(_Period), long_score, short_score, long_probability, short_probability);
+        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",
+                                            _Symbol, EnumToString(_Period), long_score, short_score, long_probability, short_probability);
         Print(print_report);
 
-         // --- ПРОВЕРКА ФИЛЬТРА ВОЛАТИЛЬНОСТИ ---
+        // --- ПРОВЕРКА ФИЛЬТРА ВОЛАТИЛЬНОСТИ ---
         if(IsVolatilitySufficient() == true)
         {
-            // --- ЛОГИКА ОТКРЫТИЯ СДЕЛОК (весь ваш старый блок if/else if) ---
+            // --- ЛОГИКА ОТКРЫТИЯ СДЕЛОК ---
             if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
             {
                 Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
             }
             else
             {
+                // Если сигнал на ПОКУПКУ (LONG) достаточно сильный
                 if (long_probability >= long_score_threshold)
                 {
-                     // Готовим и отправляем торговый приказ
-                MqlTradeRequest request; MqlTradeResult  result; 
-                ZeroMemory(request); ZeroMemory(result);
-                
-                double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK); 
-                double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                
-                request.action = TRADE_ACTION_DEAL;
-                request.symbol = _Symbol;
-                request.volume = LotSize;
-                request.type = ORDER_TYPE_BUY;
-                request.price = price;
-                request.sl = price - (StopLossPips * 10 * point);
-                request.tp = price + (TakeProfitPips * 10 * point);
-                request.magic = 12345; 
-                request.comment = "Long by MEGA_ANALYSIS_Advisor";
-                
-                if(!OrderSend(request, result)) 
-                {
-                    Print("Ошибка отправки ордера BUY: ", result.retcode, " - ", result.comment);
+                    MqlTradeRequest request; MqlTradeResult  result; 
+                    ZeroMemory(request); ZeroMemory(result);
+                    
+                    double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK); 
+                    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                    
+                    request.action = TRADE_ACTION_DEAL;
+                    request.symbol = _Symbol;
+                    request.volume = LotSize;
+                    request.type = ORDER_TYPE_BUY;
+                    request.price = price;
+                    request.sl = price - (StopLossPips * 10 * point);
+                    request.tp = price + (TakeProfitPips * 10 * point);
+                    request.magic = 12345; 
+                    request.comment = "Long by MEGA_ANALYSIS_Advisor";
+                    
+                    if(!OrderSend(request, result)) 
+                    {
+                        Print("Ошибка отправки ордера BUY: ", result.retcode, " - ", result.comment);
+                    }
+                    else 
+                    {
+                        Print("Ордер на ПОКУПКУ успешно отправлен.");
+                    }
                 }
-                else 
-                {
-                    Print("Ордер на ПОКУПКУ успешно отправлен.");
-                }
-            }
-                }
+                // Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный
                 else if (short_probability >= short_score_threshold)
                 {
-                    // Готовим и отправляем торговый приказ
-                MqlTradeRequest request; MqlTradeResult  result;
-                ZeroMemory(request); ZeroMemory(result);
-                
-                double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-                double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                    MqlTradeRequest request; MqlTradeResult  result; 
+                    ZeroMemory(request); ZeroMemory(result);
+                    
+                    double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+                    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
 
-                request.action = TRADE_ACTION_DEAL;
-                request.symbol = _Symbol;
-                request.volume = LotSize;
-                request.type = ORDER_TYPE_SELL;
-                request.price = price;
-                request.sl = price + (StopLossPips * 10 * point);
-                request.tp = price - (TakeProfitPips * 10 * point);
-                request.magic = 12345;
-                request.comment = "Short by MEGA_ANALYSIS_Advisor";
-                
-                if(!OrderSend(request, result)) 
-                {
-                    Print("Ошибка отправки ордера SELL: ", result.retcode, " - ", result.comment);
-                }
-                else 
-                {
-                    Print("Ордер на ПРОДАЖУ успешно отправлен.");
-                }
+                    request.action = TRADE_ACTION_DEAL;
+                    request.symbol = _Symbol;
+                    request.volume = LotSize;
+                    request.type = ORDER_TYPE_SELL;
+                    request.price = price;
+                    request.sl = price + (StopLossPips * 10 * point);
+                    request.tp = price - (TakeProfitPips * 10 * point);
+                    request.magic = 12345;
+                    request.comment = "Short by MEGA_ANALYSIS_Advisor";
+                    
+                    if(!OrderSend(request, result)) 
+                    {
+                        Print("Ошибка отправки ордера SELL: ", result.retcode, " - ", result.comment);
+                    }
+                    else 
+                    {
+                        Print("Ордер на ПРОДАЖУ успешно отправлен.");
+                    }
                 }
             }
         }
-        // Если IsVolatilitySufficient() вернула false, мы просто ничего не делаем,
-        // а в журнал уже было выведено сообщение о низкой волатильности.
+        else
+        {
+            // Этот блок выполнится, если фильтр ATR запретил торговлю
+            Print("Торговля пропущена: низкая волатильность (ATR).");
+        }
+    }
+    else // Этот else относится к "if (total_score > 0)"
+    {
+      UpdateDashboard(0,0,0,0);
+    }
         
 
 }
