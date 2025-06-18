@@ -3,7 +3,7 @@
 //|                                  © Forex Assistant, Alan Norberg |
 //|                                                       Версия 3.7 |
 //+------------------------------------------------------------------+
-#property version "3.7"
+#property version "3.8"
 
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
@@ -12,6 +12,7 @@ input int    StopLossPips          = 40;
 input int    TakeProfitPips        = 100;
 input int    long_score_threshold  = 75;
 input int    short_score_threshold = 81;
+input double MinATR_Value = 0.00050; 
 
 //--- Прототипы функций
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -70,13 +71,19 @@ void OnTick()
         string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.", _Symbol, EnumToString(_Period), long_score, short_score, long_probability, short_probability);
         Print(print_report);
 
-        if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true) { /* ... */ }
-        else
+         // --- ПРОВЕРКА ФИЛЬТРА ВОЛАТИЛЬНОСТИ ---
+        if(IsVolatilitySufficient() == true)
         {
-            // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
-            if (long_probability >= long_score_threshold)
+            // --- ЛОГИКА ОТКРЫТИЯ СДЕЛОК (весь ваш старый блок if/else if) ---
+            if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
             {
-                // Готовим и отправляем торговый приказ
+                Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+            }
+            else
+            {
+                if (long_probability >= long_score_threshold)
+                {
+                     // Готовим и отправляем торговый приказ
                 MqlTradeRequest request; MqlTradeResult  result; 
                 ZeroMemory(request); ZeroMemory(result);
                 
@@ -102,10 +109,10 @@ void OnTick()
                     Print("Ордер на ПОКУПКУ успешно отправлен.");
                 }
             }
-            // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
-            else if (short_probability >= short_score_threshold)
-            {
-                // Готовим и отправляем торговый приказ
+                }
+                else if (short_probability >= short_score_threshold)
+                {
+                    // Готовим и отправляем торговый приказ
                 MqlTradeRequest request; MqlTradeResult  result;
                 ZeroMemory(request); ZeroMemory(result);
                 
@@ -130,10 +137,13 @@ void OnTick()
                 {
                     Print("Ордер на ПРОДАЖУ успешно отправлен.");
                 }
+                }
             }
         }
-    }
-    else { UpdateDashboard(0,0,0,0); }
+        // Если IsVolatilitySufficient() вернула false, мы просто ничего не делаем,
+        // а в журнал уже было выведено сообщение о низкой волатильности.
+        
+
 }
 
 //+------------------------------------------------------------------+
@@ -470,6 +480,37 @@ void CheckIchimoku(int &long_score, int &short_score){
     }
     else { Print("Ошибка: не удалось создать хэндл для индикатора Ichimoku."); }
 }
+
+   // --- Функция-фильтр по волатильности ATR ---
+   bool IsVolatilitySufficient()
+   {
+       int atr_handle = iATR(_Symbol, _Period, 14); // Стандартный период ATR - 14
+       if(atr_handle != INVALID_HANDLE)
+       {
+           double atr_buffer[];
+           ArraySetAsSeries(atr_buffer, true);
+           
+           // Копируем значение ATR с последней закрытой свечи
+           if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
+           {
+               double current_atr = atr_buffer[0];
+               IndicatorRelease(atr_handle);
+               
+               // Сравниваем текущий ATR с нашим пороговым значением
+               if(current_atr < MinATR_Value)
+               {
+                   Print("Фильтр ATR: Волатильность слишком низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
+                   return false; // Волатильность недостаточна
+               }
+               else
+               {
+                   return true; // Волатильность достаточна
+               }
+           }
+           IndicatorRelease(atr_handle);
+       }
+       return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
+   }
 
 // --- Функция для обновления панели на графике ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob){
