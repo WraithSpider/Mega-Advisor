@@ -1,21 +1,19 @@
-﻿//+------------------------------------------------------------------+
-//|                                        MEGA_ANALYSIS_Advisor.mq5 |
-//|                                  © Forex Assistant, Alan Norberg |
-//|                                       Версия 6.0: Полная система |
 //+------------------------------------------------------------------+
-#property version "0.6"
+//|                                        MEGA_ANALYSIS_Advisor.mq5 |
+//|                                   © Forex Assistant, Alan Norberg |
+//|                          Версия 6.1: Полная система с исправлением |
+//+------------------------------------------------------------------+
+#property version "0.7"
 
-//--- Входные параметры для торговли
+//--- Входные параметры
 input bool   AllowMultipleTrades   = false;
 input double LotSize               = 0.01;
 input int    StopLossPips          = 40;
 input int    TakeProfitPips        = 100;
+input int    long_score_threshold  = 75;
+input int    short_score_threshold = 81;
 
-//--- Входные параметры для сигналов
-input int long_score_threshold = 75;
-input int short_score_threshold = 81;
-
-//--- Прототипы всех наших вспомогательных функций ---
+//--- Прототипы функций
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
 void CheckD1Trend(int &long_score, int &short_score);
 void CheckDeepRSI(int &long_score, int &short_score);
@@ -27,10 +25,7 @@ void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
 
-
-//+------------------------------------------------------------------+
-//| OnInit, OnDeinit (без изменений)                                 |
-//+------------------------------------------------------------------+
+//--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
 void OnDeinit(const int reason)
 {
@@ -41,23 +36,19 @@ void OnDeinit(const int reason)
 }
 
 //+------------------------------------------------------------------+
-//| Главная рабочая функция OnTick (теперь очень чистая и короткая)   |
+//| Главная рабочая функция OnTick                                   |
 //+------------------------------------------------------------------+
 void OnTick()
 {
-    //--- Проверка на новый бар ---
     static datetime prev_time = 0;
     datetime current_time = iTime(_Symbol, _Period, 0);
     if(prev_time == current_time) return;
     prev_time = current_time;
 
-    // --- Шаг 1: Инициализация ---
     int long_score = 0;
     int short_score = 0;
     Print("--- Новый бар! Начало полного анализа ---");
 
-    // --- Шаг 2: СБОР ВСЕХ СИГНАЛОВ ---
-    // Последовательно вызываем все наши аналитические модули
     CheckD1Trend(long_score, short_score);
     CheckDeepRSI(long_score, short_score);
     CheckFractalDivergence(long_score, short_score);
@@ -68,41 +59,25 @@ void OnTick()
     CheckSmartBBands(long_score, short_score);
     CheckIchimoku(long_score, short_score);
     
-    // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
-    // Этот блок остается таким же, как и раньше
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
     if (total_score > 0)
     {
         double long_probability = (double)long_score / total_score * 100;
         double short_probability = (double)short_score / total_score * 100;
-        
         UpdateDashboard(long_score, short_score, long_probability, short_probability);
         
-        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",
-                                            _Symbol, EnumToString(_Period), long_score, short_score, long_probability, short_probability);
+        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.", _Symbol, EnumToString(_Period), long_score, short_score, long_probability, short_probability);
         Print(print_report);
 
-        if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
-        {
-            Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-        }
+        if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true) { /* ... */ }
         else
         {
-            if (long_probability >= long_score_threshold)
-            {
-                // Код открытия BUY сделки
-            }
-            else if (short_probability >= short_score_threshold)
-            {
-                // Код открытия SELL сделки
-            }
+            if (long_probability >= long_score_threshold) { /* Код открытия BUY сделки */ }
+            else if (short_probability >= short_score_threshold) { /* Код открытия SELL сделки */ }
         }
     }
-    else
-    {
-      UpdateDashboard(0,0,0,0);
-    }
+    else { UpdateDashboard(0,0,0,0); }
 }
 
 //+------------------------------------------------------------------+
@@ -114,18 +89,14 @@ void OnTick()
 // --- Функция для D1 Тренда ---
 void CheckD1Trend(int &long_score, int &short_score){
     int ema_d1_handle = iMA(_Symbol, PERIOD_D1, 50, 0, MODE_EMA, PRICE_CLOSE);
-    double ema_d1_buffer[];
-    ArraySetAsSeries(ema_d1_buffer, true);
-    MqlRates rates_d1[];
-    ArraySetAsSeries(rates_d1, true);
-    if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0)
-    {
-        double price_close_d1 = rates_d1[0].close;
-        double ema_d1_value = ema_d1_buffer[0];
-        if(price_close_d1 > ema_d1_value) { long_score += 3; Print("D1 Тренд: Восходящий. Очки Long +3"); }
-        else { short_score += 3; Print("D1 Тренд: Нисходящий. Очки Short +3"); }
+    if(ema_d1_handle != INVALID_HANDLE) {
+        double ema_d1_buffer[]; ArraySetAsSeries(ema_d1_buffer, true);
+        MqlRates rates_d1[]; ArraySetAsSeries(rates_d1, true);
+        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) {
+            if(rates_d1[0].close > ema_d1_buffer[0]) long_score += 3; else short_score += 3;
+        }
+        IndicatorRelease(ema_d1_handle);
     }
-    IndicatorRelease(ema_d1_handle);
 }
 
 // --- Функция углубленного анализа RSI ---
@@ -341,19 +312,15 @@ void CheckSMACross(int &long_score, int &short_score){
 // --- Функция для цены относительно WMA(200) ---
 void CheckWMATrend(int &long_score, int &short_score){
     int wma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_LWMA, PRICE_CLOSE);
-    double wma200_buffer[];
-    ArraySetAsSeries(wma200_buffer, true);
-    if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 && CopyBuffer(wma200_handle, 0, 1, 1, wma200_buffer) > 0)
-    {
-        double close_price = rates[0].close;
-        double wma200 = wma200_buffer[0];
-        if (close_price > wma200) long_score += 3;
-        if (close_price < wma200) short_score += 3;
-        Print("Price vs WMA(200) (",EnumToString(_Period),"): состояние. Очки Long/Short: ",long_score,"/",short_score);
+    if(wma200_handle != INVALID_HANDLE) {
+        double wma200_buffer[]; ArraySetAsSeries(wma200_buffer, true);
+        MqlRates rates[]; ArraySetAsSeries(rates, true); // << ОБЪЯВЛЕНИЕ ПЕРЕМЕЩЕНО СЮДА
+        if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 && CopyBuffer(wma200_handle, 0, 1, 1, wma200_buffer) > 0) {
+            if (rates[0].close > wma200_buffer[0]) long_score += 3; else short_score += 3;
+        }
+        IndicatorRelease(wma200_handle);
     }
-    IndicatorRelease(wma200_handle);
 }
-
 // --- Функция для "умных" Полос Боллинджера ---
 void CheckSmartBBands(int &long_score, int &short_score){
      int bb_handle = iBands(_Symbol, _Period, 20, 0, 2.0, PRICE_CLOSE);
