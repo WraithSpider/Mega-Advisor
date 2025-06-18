@@ -1,9 +1,9 @@
 //+------------------------------------------------------------------+
 //|                                        MEGA_ANALYSIS_Advisor.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
-//|                                                       Версия 3.8 |
+//|                                                       Версия 3.9 |
 //+------------------------------------------------------------------+
-#property version "3.8"
+#property version "3.9"
 
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
@@ -25,6 +25,7 @@ void CheckSMACross(int &long_score, int &short_score);
 void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
+void CheckBollingerSqueeze(int &long_score, int &short_score);
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -59,6 +60,7 @@ void OnTick()
     CheckWMATrend(long_score, short_score);
     CheckSmartBBands(long_score, short_score);
     CheckIchimoku(long_score, short_score);
+    CheckBollingerSqueeze(long_score, short_score);
     
     // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -489,6 +491,77 @@ void CheckIchimoku(int &long_score, int &short_score){
         IndicatorRelease(ichimoku_handle);
     }
     else { Print("Ошибка: не удалось создать хэндл для индикатора Ichimoku."); }
+}
+
+   // --- Функция анализа Сжатия и Прорыва Полос Боллинджера ---
+void CheckBollingerSqueeze(int &long_score, int &short_score)
+{
+    // --- Получаем хэндлы на нужные нам индикаторы ---
+    int bb_handle = iBands(_Symbol, _Period, 20, 0, 2.0, PRICE_CLOSE);
+    int stddev_handle = iStdDev(_Symbol, _Period, 20, 0, MODE_SMA, PRICE_CLOSE); // StdDev с тем же периодом, что и BB
+
+    if(bb_handle == INVALID_HANDLE || stddev_handle == INVALID_HANDLE)
+    {
+        Print("Ошибка: не удалось создать хэндл для BB или StdDev.");
+        return;
+    }
+
+    // --- Готовим и копируем данные ---
+    int history_bars_for_squeeze = 120; // Период для поиска самого сильного сжатия
+    double bb_upper_buffer[], bb_lower_buffer[], stddev_buffer[];
+    MqlRates rates[];
+    
+    ArraySetAsSeries(bb_upper_buffer, true);
+    ArraySetAsSeries(bb_lower_buffer, true);
+    ArraySetAsSeries(stddev_buffer, true);
+    ArraySetAsSeries(rates, true);
+    
+    // Копируем данные за весь период поиска сжатия
+    if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 &&
+       CopyBuffer(bb_handle, 1, 1, 1, bb_upper_buffer) > 0 &&
+       CopyBuffer(bb_handle, 2, 1, 1, bb_lower_buffer) > 0 &&
+       CopyBuffer(stddev_handle, 0, 1, history_bars_for_squeeze, stddev_buffer) > 0)
+    {
+        double price_close = rates[0].close;
+        double bb_upper = bb_upper_buffer[0];
+        double bb_lower = bb_lower_buffer[0];
+        
+        // --- 1. Определяем, есть ли сейчас "Сжатие" ---
+        double current_stddev = stddev_buffer[0];
+        double min_stddev = current_stddev;
+
+        // Ищем минимальное значение StdDev за последние N баров
+        for(int i = 1; i < history_bars_for_squeeze; i++)
+        {
+            if(stddev_buffer[i] < min_stddev)
+            {
+                min_stddev = stddev_buffer[i];
+            }
+        }
+        
+        // Считаем, что "сжатие" есть, если текущая волатильность очень близка к своему минимуму
+        bool isSqueeze = (current_stddev <= min_stddev * 1.1);
+        
+        // --- 2. Если было сжатие, ищем прорыв ---
+        if(isSqueeze)
+        {
+            // Прорыв вверх
+            if(price_close > bb_upper)
+            {
+                long_score += 4; // Сильный сигнал на прорыв волатильности
+                Print("BBands Squeeze(",EnumToString(_Period),"): Обнаружен прорыв вверх из сжатия! Очки Long +4");
+            }
+            // Прорыв вниз
+            if(price_close < bb_lower)
+            {
+                short_score += 4; // Сильный сигнал на прорыв волатильности
+                Print("BBands Squeeze(",EnumToString(_Period),"): Обнаружен прорыв вниз из сжатия! Очки Short +4");
+            }
+        }
+    }
+    
+    IndicatorRelease(bb_handle);
+    IndicatorRelease(stddev_handle);
 }
 
    // --- Функция-фильтр по волатильности ATR ---
