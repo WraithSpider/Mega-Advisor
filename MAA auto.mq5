@@ -62,15 +62,14 @@ void OnTick()
 {
     //--- Проверка на новый бар ---
     static datetime prev_time = 0;
-    static int barsSinceLastTrade = 999; // << ДОБАВЛЕНО: Наш счетчик. Начинаем с большого числа, чтобы разрешить первую сделку.
-    
     datetime current_time = iTime(_Symbol, _Period, 0);
     if(prev_time == current_time)
     {
-        return; 
+        return;
     }
     prev_time = current_time;
-    barsSinceLastTrade++; // << ДОБАВЛЕНО: Увеличиваем счетчик на каждой новой свече
+
+    static int barsSinceLastTrade = 999;
     
     // --- Шаг 0: Инициализация ---
     // <<<< ВОТ ЭТОТ БЛОК НУЖНО ВЕРНУТЬ
