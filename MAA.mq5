@@ -1,9 +1,9 @@
 //+------------------------------------------------------------------+
-//|                                        MEGA_ANALYSIS_Advisor.mq5 |
+//|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
-//|                                                       Версия 3.9 |
+//|                                                      Версия 4.01 |
 //+------------------------------------------------------------------+
-#property version "3.9"
+#property version "4.01"
 
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
@@ -13,6 +13,7 @@ input int    TakeProfitPips        = 100;
 input int    long_score_threshold  = 75;
 input int    short_score_threshold = 81;
 input double MinATR_Value = 0.00050; 
+input double VolumeMultiplier = 2.0;
 
 //--- Прототипы функций
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -26,6 +27,7 @@ void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
 void CheckBollingerSqueeze(int &long_score, int &short_score);
+void CheckVolumeSpikes(int &long_score, int &short_score);
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -61,6 +63,7 @@ void OnTick()
     CheckSmartBBands(long_score, short_score);
     CheckIchimoku(long_score, short_score);
     CheckBollingerSqueeze(long_score, short_score);
+    CheckVolumeSpikes(long_score, short_score);
     
     // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -594,6 +597,62 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
        }
        return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
    }
+
+// --- Функция углубленного анализа RSI ---
+void CheckVolumeSpikes(int &long_score, int &short_score)
+{
+    // --- Готовим массивы для цен и объемов ---
+    MqlRates rates[];
+    long volumes[];
+    int history_to_check = 21; // Проверяем за последние 20 баров + текущий
+    
+    // Копируем данные
+    if(CopyRates(_Symbol, _Period, 0, history_to_check, rates) < history_to_check ||
+       CopyTickVolume(_Symbol, _Period, 0, history_to_check, volumes) < history_to_check)
+    {
+        Print("Ошибка: не удалось скопировать данные для анализа объема.");
+        return;
+    }
+    
+    // MQL5 копирует данные в обратном порядке, перевернем их для удобства
+    ArraySetAsSeries(rates, true);
+    ArraySetAsSeries(volumes, true);
+    
+    // --- Рассчитываем средний объем за последние 20 баров ---
+    long average_volume = 0;
+    for(int i = 1; i < history_to_check; i++) // Начинаем с 1, чтобы не учитывать текущий, формирующийся бар
+    {
+        average_volume += volumes[i];
+    }
+    average_volume = average_volume / (history_to_check - 1);
+    
+    // --- Анализируем последнюю закрытую свечу (индекс 1) ---
+    long last_bar_volume = volumes[1];
+    
+    // Проверяем, был ли всплеск объема
+    if(last_bar_volume > average_volume * VolumeMultiplier)
+    {
+        // Если был всплеск, проверяем характер свечи
+        double last_close = rates[1].close;
+        double last_open = rates[1].open;
+        double prev_close = rates[2].close;
+        double prev_open = rates[2].open;
+        
+        // Бычье поглощение на всплеске объема
+        if(last_close > last_open && last_close > prev_open && last_open < prev_close)
+        {
+            long_score += 3;
+            Print("Volume Spike: Обнаружено бычье поглощение на всплеске объема! Очки Long +3");
+        }
+        
+        // Медвежье поглощение на всплеске объема
+        if(last_close < last_open && last_close < prev_open && last_open > prev_close)
+        {
+            short_score += 3;
+            Print("Volume Spike: Обнаружено медвежье поглощение на всплеске объема! Очки Short +3");
+        }
+    }
+}
 
 // --- Функция для обновления панели на графике ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob){
