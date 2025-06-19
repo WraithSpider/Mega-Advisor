@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.13"
+#property version "4.14"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -11,10 +11,12 @@ input double LotSize               = 0.01;   // ОБЩИЙ размер лота
 input int    SL_TP_BufferPips      = 15;     // Отступ для "умных" SL/TP от уровней в пипсах
 
 //--- Входные параметры для сигналов
+input group "--- Пороги Сигналов ---"
 input int long_score_threshold  = 80;     // Порог в % для сигнала LONG
 input int short_score_threshold = 80;     // Порог в % для сигнала SHORT
 
 //--- Входные параметры для фильтров
+input group "--- Фильтры ---"
 input int    ADX_TrendStrength     = 25;     // Минимальная сила тренда по ADX
 input int    SR_ProximityPips      = 15;     // Зона приближения к уровням S/R в пипсах
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
@@ -80,7 +82,7 @@ void OnTick()
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
-    if (total_score > 0)
+    if(total_score > 0)
     {
         double long_probability = (double)long_score / total_score * 100;
         double short_probability = (double)short_score / total_score * 100;
@@ -92,34 +94,82 @@ void OnTick()
         // Проверяем фильтр волатильности
         if(IsVolatilitySufficient() == true)
         {
-            // Проверяем, есть ли уже открытые позиции по этому символу. Если есть, ничего не делаем.
+            // Проверяем, есть ли уже открытые позиции. Если есть, ничего не делаем.
             if(PositionSelect(_Symbol) == true)
             {
                 Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
             }
-            else // Если позиций нет, проверяем сигналы и открываем всю серию ордеров за раз
+            else // Если позиций нет, проверяем сигналы и открываем сделку/сделки
             {
+                // Сначала находим уровни поддержки и сопротивления
                 double support=0, resistance=0;
-                if(GetNearestSupportResistance(support, resistance))
+                if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
                 {
+                    // Рассчитываем лот для каждой части сделки
+                    double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN))
+                    {
+                       Print("Ошибка: Расчетный лот (%.2f) меньше минимально допустимого.", partial_lot);
+                       return;
+                    }
+                
                     // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
                     if (long_probability >= long_score_threshold)
                     {
-                        // Код для открытия N ордеров на покупку
-                        // ...
+                        Print("Получен сигнал LONG. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
+                        double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+                        double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                        
+                        // Устанавливаем умный стоп-лосс и финальный тейк-профит на основе уровней
+                        double stop_loss = support - (SL_TP_BufferPips * 10 * point);
+                        double final_tp = resistance - (SL_TP_BufferPips * 10 * point);
+                        
+                        // В цикле открываем нужное количество ордеров
+                        for(int i = 0; i < NumberOfTrades; i++)
+                        {
+                            MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                            // Первый ордер с частичным тейком, остальные - с полным
+                            double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+
+                            r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
+                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by MAA";
+                            if(!OrderSend(r,res)) Print("Ошибка отправки ордера BUY: %d", res.retcode); else Print("BUY #%d отправлен.", i+1);
+                        }
                     }
                     // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
                     else if (short_probability >= short_score_threshold)
                     {
-                        // Код для открытия N ордеров на продажу
-                        // ...
+                        Print("Получен сигнал SHORT. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
+                        double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+                        double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+
+                        // Устанавливаем умный стоп-лосс и финальный тейк-профит на основе уровней
+                        double stop_loss = resistance + (SL_TP_BufferPips * 10 * point);
+                        double final_tp = support + (SL_TP_BufferPips * 10 * point);
+
+                        for(int i = 0; i < NumberOfTrades; i++)
+                        {
+                           MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                           // Первый ордер с частичным тейком, остальные - с полным
+                           double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
+
+                           r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
+                           r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
+                           if(!OrderSend(r,res)) Print("Ошибка отправки ордера SELL: %d", res.retcode); else Print("SELL #%d отправлен.", i+1);
+                        }
                     }
                 }
             }
         }
-        else { Print("Торговля пропущена: низкая волатильность (ATR)."); }
+        else 
+        { 
+            Print("Торговля пропущена: низкая волатильность (ATR)."); 
+        }
     }
-    else { UpdateDashboard(0,0,0,0); }
+    else 
+    { 
+      UpdateDashboard(0,0,0,0); 
+    }
 }
 
 
