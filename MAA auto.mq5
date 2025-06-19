@@ -70,6 +70,11 @@ void OnTick()
     }
     prev_time = current_time;
     barsSinceLastTrade++; // << ДОБАВЛЕНО: Увеличиваем счетчик на каждой новой свече
+    
+    // --- Шаг 0: Инициализация ---
+    // <<<< ВОТ ЭТОТ БЛОК НУЖНО ВЕРНУТЬ
+    int long_score = 0;
+    int short_score = 0;
 
     //--- ШАГ 1: СБОР ВСЕХ СИГНАЛОВ ---
     CheckD1Trend(long_score, short_score);
