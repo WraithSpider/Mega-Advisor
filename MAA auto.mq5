@@ -1,3 +1,4 @@
+
 //+------------------------------------------------------------------+
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
@@ -40,8 +41,7 @@ void CheckVolumeSpikes(int &long_score, int &short_score);
 bool IsVolatilitySufficient();
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
-void CheckADXCrossover(int &long_score, int &short_score);
-bool IsTrendStrongADX()
+
 
 //+------------------------------------------------------------------+
 //| Стандартные функции советника                                    |
@@ -62,14 +62,15 @@ void OnTick()
 {
     //--- Проверка на новый бар ---
     static datetime prev_time = 0;
+    static int barsSinceLastTrade = 999; // << ДОБАВЛЕНО: Наш счетчик. Начинаем с большого числа, чтобы разрешить первую сделку.
+    
     datetime current_time = iTime(_Symbol, _Period, 0);
     if(prev_time == current_time)
     {
-        return;
+        return; 
     }
     prev_time = current_time;
-
-    static int barsSinceLastTrade = 999;
+    barsSinceLastTrade++; // << ДОБАВЛЕНО: Увеличиваем счетчик на каждой новой свече
     
     // --- Шаг 0: Инициализация ---
     // <<<< ВОТ ЭТОТ БЛОК НУЖНО ВЕРНУТЬ
@@ -88,7 +89,6 @@ void OnTick()
     CheckIchimoku(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
-    CheckADXCrossover(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -979,31 +979,8 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
     }
 }
 
-// --- Функция-фильтр: проверяет, достаточно ли сильный тренд по ADX ---
-bool IsTrendStrongADX()
-{
-    int adx_handle = iADX(_Symbol, _Period, 14);
-    if(adx_handle == INVALID_HANDLE) return false; // Если ошибка, на всякий случай запрещаем торговлю
-
-    double adx_buffer[];
-    ArraySetAsSeries(adx_buffer, true);
-
-    if(CopyBuffer(adx_handle, 0, 1, 1, adx_buffer) > 0)
-    {
-        IndicatorRelease(adx_handle);
-        if(adx_buffer[0] >= ADX_TrendStrength)
-        {
-            return true; // Тренд сильный, торговля разрешена
-        }
-    }
-    
-    IndicatorRelease(adx_handle);
-    Print("Торговля заблокирована фильтром ADX: на рынке нет сильного тренда.");
-    return false; // Тренд слабый, торговля запрещена
-}
-
 // --- Функция анализа силы тренда ADX/DMI ---
-void CheckADXCrossover(int &long_score, int &short_score)
+void CheckADX(int &long_score, int &short_score)
 {
     // --- Получаем хэндл на индикатор ADX со стандартным периодом 14 ---
     int adx_handle = iADX(_Symbol, _Period, 14);
