@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.04"
+#property version "4.05"
 
 //--- Входные параметры для торговли
 input bool   AllowMultipleTrades   = false;  // Разрешить несколько сделок одновременно?
@@ -34,6 +34,7 @@ void CheckVolumeSpikes(int &long_score, int &short_score);
 void CheckStochastic(int &long_score, int &short_score);
 void CheckFibonacciRetracement(int &long_score, int &short_score);
 void CheckVWAP(int &long_score, int &short_score);
+void CheckSupportResistanceSignal(int &long_score, int &short_score);
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -73,6 +74,7 @@ void OnTick()
     CheckStochastic(long_score, short_score);
     CheckFibonacciRetracement(long_score, short_score);
     CheckVWAP(long_score, short_score);
+    CheckSupportResistanceSignal(long_score, short_score);
 
 
     // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
@@ -794,7 +796,7 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
 void CheckVWAP(int &long_score, int &short_score)
 {
     // Указываем имя файла вашего скачанного индикатора
-    string indicator_path = "Basic VWAP"; 
+    string indicator_path = "Market\\Basic VWAP";
     
     // Номер буфера, который мы определили по вашему скриншоту
     int vwap_buffer_number = 0;
@@ -890,6 +892,70 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
     }
     
     return(false);
+}
+
+// --- Функция анализа сигнала от уровней поддержки и сопротивления ---
+void CheckSupportResistanceSignal(int &long_score, int &short_score)
+{
+    // --- Ищем уровни с помощью фракталов ---
+    int history_bars = 100;
+    int fractals_handle = iFractals(_Symbol, _Period);
+    if(fractals_handle == INVALID_HANDLE) return;
+
+    double fractals_up_buffer[], fractals_down_buffer[];
+    ArraySetAsSeries(fractals_up_buffer, true);
+    ArraySetAsSeries(fractals_down_buffer, true);
+
+    if(CopyBuffer(fractals_handle, 0, 0, history_bars, fractals_up_buffer) < 3 ||
+       CopyBuffer(fractals_handle, 1, 0, history_bars, fractals_down_buffer) < 3)
+    {
+        IndicatorRelease(fractals_handle);
+        return;
+    }
+    
+    // Ищем самый высокий пик (сопротивление) и самую низкую впадину (поддержку)
+    double resistance_level = 0;
+    double support_level = 999999;
+
+    for(int i = 3; i < history_bars; i++)
+    {
+        if(fractals_up_buffer[i] != EMPTY_VALUE && fractals_up_buffer[i] > resistance_level)
+        {
+            resistance_level = fractals_up_buffer[i];
+        }
+        if(fractals_down_buffer[i] != EMPTY_VALUE && fractals_down_buffer[i] < support_level)
+        {
+            support_level = fractals_down_buffer[i];
+        }
+    }
+
+    IndicatorRelease(fractals_handle);
+
+    // --- Применяем логику начисления очков ---
+    if(resistance_level > 0 && support_level < 999999)
+    {
+        MqlRates rates[];
+        if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0)
+        {
+            double price_low = rates[0].low;
+            double price_high = rates[0].high;
+            double proximity_zone = SR_ProximityPips * 10 * _Point;
+
+            // Проверяем близость к уровню поддержки
+            if(MathAbs(price_low - support_level) <= proximity_zone)
+            {
+                long_score += 3;
+                Print("S/R Levels: Цена у уровня поддержки. Очки Long +3");
+            }
+
+            // Проверяем близость к уровню сопротивления
+            if(MathAbs(price_high - resistance_level) <= proximity_zone)
+            {
+                short_score += 3;
+                Print("S/R Levels: Цена у уровня сопротивления. Очки Short +3");
+            }
+        }
+    }
 }
 
 // --- Функция для обновления панели на графике ---
