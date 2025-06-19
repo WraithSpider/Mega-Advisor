@@ -49,13 +49,6 @@ bool IsTrendStrongADX();
 //| Стандартные функции советника                                    |
 //+------------------------------------------------------------------+
 int OnInit() { return(INIT_SUCCEEDED); }
-void OnDeinit(const int reason)
-{
-    ObjectDelete(0, "MegaAnalysis_Line1");
-    ObjectDelete(0, "MegaAnalysis_Line2");
-    ObjectDelete(0, "MegaAnalysis_Line3");
-    ChartRedraw();
-}
 
 //+------------------------------------------------------------------+
 //| Главная рабочая функция OnTick                                   |
