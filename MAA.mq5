@@ -1,9 +1,9 @@
 //+------------------------------------------------------------------+
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
-//|                                                      Версия 4.01 |
+//|                                                      Версия 4.02 |
 //+------------------------------------------------------------------+
-#property version "4.01"
+#property version "4.02"
 
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
@@ -28,6 +28,8 @@ void CheckSmartBBands(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
 void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
+void CheckStochastic(int &long_score, int &short_score);
+void CheckFibonacciRetracement(int &long_score, int &short_score);
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -64,6 +66,8 @@ void OnTick()
     CheckIchimoku(long_score, short_score);
     CheckBollingerSqueeze(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
+    CheckStochastic(long_score, short_score);
+    CheckFibonacciRetracement(long_score, short_score);
     
     // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -598,6 +602,70 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
        return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
    }
 
+// --- Функция анализа Стохастического Осциллятора ---
+void CheckStochastic(int &long_score, int &short_score)
+{
+    // Стандартные параметры стохастика: %K=5, %D=3, Замедление=3
+    int stochastic_handle = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);
+
+    if(stochastic_handle != INVALID_HANDLE)
+    {
+        // Готовим буферы для главной и сигнальной линий
+        double main_line_buffer[], signal_line_buffer[];
+        int data_to_copy = 3; 
+        
+        ArraySetAsSeries(main_line_buffer, true);
+        ArraySetAsSeries(signal_line_buffer, true);
+        
+        // Копируем данные из буферов
+        if(CopyBuffer(stochastic_handle, 0, 0, data_to_copy, main_line_buffer) > 0 &&   // Буфер 0: Главная линия (%K)
+           CopyBuffer(stochastic_handle, 1, 0, data_to_copy, signal_line_buffer) > 0)    // Буфер 1: Сигнальная линия (%D)
+        {
+            // Извлекаем значения для текущей закрытой свечи (индекс 1) и предыдущей (индекс 2)
+            double main_current = main_line_buffer[1];
+            double main_prev = main_line_buffer[2];
+            double signal_current = signal_line_buffer[1];
+            double signal_prev = signal_line_buffer[2];
+
+            // --- ПРОВЕРКА СИГНАЛОВ ---
+
+            // Бычье пересечение (быстрая выше медленной)
+            if(main_prev <= signal_prev && main_current > signal_current)
+            {
+                // Сигнал №2: Обычное пересечение
+                long_score++;
+                Print("Stochastic(",EnumToString(_Period),"): Обнаружено обычное бычье пересечение. Очки Long +1");
+
+                // Сигнал №1: Пересечение в зоне перепроданности
+                if(main_current < 20 && signal_current < 20)
+                {
+                    long_score += 3;
+                    Print("Stochastic(",EnumToString(_Period),"): Пересечение в зоне перепроданности! Очки Long +3");
+                }
+            }
+            // Медвежье пересечение (быстрая ниже медленной)
+            else if(main_prev >= signal_prev && main_current < signal_current)
+            {
+                // Сигнал №2: Обычное пересечение
+                short_score++;
+                Print("Stochastic(",EnumToString(_Period),"): Обнаружено обычное медвежье пересечение. Очки Short +1");
+                
+                // Сигнал №1: Пересечение в зоне перекупленности
+                if(main_current > 80 && signal_current > 80)
+                {
+                    short_score += 3;
+                    Print("Stochastic(",EnumToString(_Period),"): Пересечение в зоне перекупленности! Очки Short +3");
+                }
+            }
+        }
+        IndicatorRelease(stochastic_handle);
+    }
+    else
+    {
+        Print("Ошибка: не удалось создать хэндл для индикатора Stochastic.");
+    }
+}
+
 // --- Функция углубленного анализа RSI ---
 void CheckVolumeSpikes(int &long_score, int &short_score)
 {
@@ -652,6 +720,87 @@ void CheckVolumeSpikes(int &long_score, int &short_score)
             Print("Volume Spike: Обнаружено медвежье поглощение на всплеске объема! Очки Short +3");
         }
     }
+}
+
+// --- Функция анализа отката по Фибоначчи с помощью ZigZag ---
+void CheckFibonacciRetracement(int &long_score, int &short_score)
+{
+    // --- Получаем хэндл на индикатор ZigZag ---
+    // Стандартные параметры ZigZag: ExtDepth=12, ExtDeviation=5, ExtBackstep=3
+    int zigzag_handle = iZigZag(_Symbol, _Period, 12, 5, 3);
+
+    if(zigzag_handle == INVALID_HANDLE)
+    {
+        Print("Ошибка: не удалось создать хэндл для индикатора ZigZag.");
+        return;
+    }
+
+    // --- Готовим буфер и копируем данные ЗигЗага ---
+    double zigzag_buffer[];
+    ArraySetAsSeries(zigzag_buffer, true);
+    
+    // Пытаемся скопировать 3 последних значения. Если их меньше, значит истории мало.
+    if(CopyBuffer(zigzag_handle, 0, 0, 3, zigzag_buffer) < 3)
+    {
+        IndicatorRelease(zigzag_handle);
+        return; 
+    }
+    
+    // --- Ищем 3 последние, непустые точки ЗигЗага ---
+    double last_point = 0, prev_point = 0, pre_prev_point = 0;
+    int points_found = 0;
+    for(int i = 0; i < 300; i++) // Ищем в последних 300 барах
+    {
+        if(CopyBuffer(zigzag_handle, 0, i, 1, zigzag_buffer) > 0 && zigzag_buffer[0] > 0)
+        {
+            if(points_found == 0) last_point = zigzag_buffer[0];
+            if(points_found == 1) prev_point = zigzag_buffer[0];
+            if(points_found == 2) { pre_prev_point = zigzag_buffer[0]; break; }
+            points_found++;
+        }
+    }
+
+    // --- Анализируем последнюю волну, если нашли 3 точки ---
+    if(points_found == 2)
+    {
+        MqlRates current_rate[];
+        CopyRates(_Symbol, _Period, 0, 1, current_rate);
+        double current_price = current_rate[0].close;
+
+        // --- Сценарий 1: Последняя волна была ВОСХОДЯЩЕЙ (prev -> last) ---
+        if(last_point > prev_point && pre_prev_point < prev_point)
+        {
+            double swing_high = last_point;
+            double swing_low = prev_point;
+            double swing_range = swing_high - swing_low;
+            double fibo_61_8_level = swing_high - swing_range * 0.618; // Уровень отката 61.8%
+
+            // Проверяем, находится ли текущая цена около этого уровня поддержки
+            if(MathAbs(current_price - fibo_61_8_level) < (_Point * 10)) // Погрешность в 10 пунктов
+            {
+                long_score += 4;
+                Print("Fibonacci: Обнаружен откат к уровню поддержки 61.8%%. Очки Long +4");
+            }
+        }
+        
+        // --- Сценарий 2: Последняя волна была НИСХОДЯЩЕЙ (prev -> last) ---
+        if(last_point < prev_point && pre_prev_point > prev_point)
+        {
+            double swing_high = prev_point;
+            double swing_low = last_point;
+            double swing_range = swing_high - swing_low;
+            double fibo_61_8_level = swing_low + swing_range * 0.618; // Уровень отката 61.8%
+
+            // Проверяем, находится ли текущая цена около этого уровня сопротивления
+            if(MathAbs(current_price - fibo_61_8_level) < (_Point * 10)) // Погрешность в 10 пунктов
+            {
+                short_score += 4;
+                Print("Fibonacci: Обнаружен откат к уровню сопротивления 61.8%%. Очки Short +4");
+            }
+        }
+    }
+
+    IndicatorRelease(zigzag_handle);
 }
 
 // --- Функция для обновления панели на графике ---
