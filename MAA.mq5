@@ -1,9 +1,10 @@
 //+------------------------------------------------------------------+
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
-//|                                                      Версия 4.02 |
 //+------------------------------------------------------------------+
 #property version "4.02"
+
+#include <Indicators\ZigZag.mqh>
 
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
