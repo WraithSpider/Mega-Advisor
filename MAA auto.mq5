@@ -24,6 +24,7 @@ input int    SR_ProximityPips      = 15;     // Зона приближения 
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
 input double MinATR_Value          = 0.00050;// Минимальное значение ATR для торговли
 
+string g_debug_log = ""; // Глобальная переменная для сбора отчетов от функций
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -43,8 +44,6 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
 void CheckADXCrossover(int &long_score, int &short_score);
 bool IsTrendStrongADX();
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob, string debug_log);
-
-string g_debug_log = ""; // Глобальная переменная для сбора отчетов от функций
 
 
 //+------------------------------------------------------------------+
@@ -176,7 +175,7 @@ void OnTick()
             }
         }
     }
-    else { UpdateDashboard(long_score, short_score, long_probability, short_probability, g_debug_log); }
+    else { UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob, string debug_log); }
 }
 
 
