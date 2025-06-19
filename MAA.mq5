@@ -5,9 +5,18 @@
 #property version "4.04"
 
 //--- Входные параметры для торговли
-input bool   AllowMultipleTrades   = false;
-input double LotSize               = 0.01;
-input int    SL_TP_BufferPips      = 10;   // Отступ для SL/TP от уровней в пипсах
+input bool   AllowMultipleTrades   = false;  // Разрешить несколько сделок одновременно?
+input double LotSize               = 0.01;   // Размер лота для сделки
+input int    SL_TP_BufferPips      = 10;     // Отступ для "умных" SL/TP от уровней в пипсах
+
+//--- Входные параметры для сигналов
+input int long_score_threshold  = 80;     // Порог в % для сигнала LONG
+input int short_score_threshold = 80;     // Порог в % для сигнала SHORT
+
+//--- Входные параметры для фильтров
+input double VolumeMultiplier = 2.0;      // Во сколько раз объем должен превышать средний
+input double MinATR_Value     = 0.00080;  // Минимальное значение ATR для торговли
+
 
 //--- Прототипы функций
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
