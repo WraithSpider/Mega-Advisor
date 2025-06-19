@@ -4,8 +4,6 @@
 //+------------------------------------------------------------------+
 #property version "4.02"
 
-#include <Indicators\ZigZag.mqh>
-
 //--- Входные параметры
 input bool   AllowMultipleTrades   = false;
 input double LotSize               = 0.01;
@@ -728,7 +726,7 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
 {
     // --- Получаем хэндл на индикатор ZigZag ---
     // Стандартные параметры ZigZag: ExtDepth=12, ExtDeviation=5, ExtBackstep=3
-    int zigzag_handle = iZigZag(_Symbol, _Period, 12, 5, 3);
+    int zigzag_handle = iCustom(_Symbol, _Period, "Examples\\ZigZag", 12, 5, 3);
 
     if(zigzag_handle == INVALID_HANDLE)
     {
