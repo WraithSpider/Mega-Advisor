@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.15"
+#property version "4.14"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -10,6 +10,7 @@ input double FirstTargetRatio      = 0.5;    // Коэффициент для п
 input double LotSize               = 0.01;   // ОБЩИЙ размер лота для сделки
 input int    StopLossBufferPips    = 15; // Отступ для Стоп-Лосса от уровня в пипсах
 input int    TakeProfitBufferPips  = 10; // Отступ для Тейк-Профита от уровня в пипсах
+input int MinBarsBetweenTrades = 4;       // Минимальное кол-во свечей между сделками
 
 //--- Входные параметры для сигналов
 input group "--- Пороги Сигналов ---"
@@ -58,14 +59,17 @@ void OnDeinit(const int reason)
 //+------------------------------------------------------------------+
 void OnTick()
 {
+    //--- Проверка на новый бар ---
     static datetime prev_time = 0;
+    static int barsSinceLastTrade = 999; // << ДОБАВЛЕНО: Наш счетчик. Начинаем с большого числа, чтобы разрешить первую сделку.
+    
     datetime current_time = iTime(_Symbol, _Period, 0);
-    if(prev_time == current_time) return;
+    if(prev_time == current_time)
+    {
+        return; 
+    }
     prev_time = current_time;
-
-    int long_score = 0;
-    int short_score = 0;
-    Print("--- Новый бар! Начало полного анализа ---");
+    barsSinceLastTrade++; // << ДОБАВЛЕНО: Увеличиваем счетчик на каждой новой свече
 
     //--- ШАГ 1: СБОР ВСЕХ СИГНАЛОВ ---
     CheckD1Trend(long_score, short_score);
@@ -92,17 +96,23 @@ void OnTick()
         string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
         Print(print_report);
 
-        // Проверяем фильтр волатильности
-        if(IsVolatilitySufficient() == true)
+        // --- НОВЫЙ ФИЛЬТР: Проверка "периода затишья" ---
+        if(barsSinceLastTrade < MinBarsBetweenTrades)
         {
-            // Проверяем, есть ли уже открытые позиции. Если есть, ничего не делаем.
-            if(PositionSelect(_Symbol) == true)
+            Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
+        }
+        else // Если прошло достаточно свечей, продолжаем проверки
+        {
+            // Проверяем фильтр волатильности
+            if(IsVolatilitySufficient() == true)
             {
-                Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-            }
-            else // Если позиций нет, проверяем сигналы и открываем сделку/сделки
-            {
-                // Сначала находим уровни поддержки и сопротивления
+                // Проверяем, есть ли уже открытые позиции
+                if(PositionSelect(_Symbol) == true)
+                {
+                    Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+                }
+                else // Если позиций нет, проверяем сигналы и открываем сделку/сделки
+                {
                 double support=0, resistance=0;
                 if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
                 {
@@ -121,21 +131,21 @@ void OnTick()
                         double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
                         double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
                         
-                        // Устанавливаем умный стоп-лосс и финальный тейк-профит на основе уровней
-                        double stop_loss = support - (SL_TP_BufferPips * 10 * point);
-                        double final_tp = resistance - (SL_TP_BufferPips * 10 * point);
+                        // Устанавливаем умный стоп-лосс и финальный тейк-профит с РАЗНЫМИ отступами
+                        double stop_loss = support - (StopLossBufferPips * 10 * point);
+                        double final_tp = resistance - (TakeProfitBufferPips * 10 * point);
                         
-                        // В цикле открываем нужное количество ордеров
                         for(int i = 0; i < NumberOfTrades; i++)
                         {
                             MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                            // Первый ордер с частичным тейком, остальные - с полным
                             double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
 
                             r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
                             r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by MAA";
-                            if(!OrderSend(r,res)) Print("Ошибка отправки ордера BUY: %d", res.retcode); else Print("BUY #%d отправлен.", i+1);
+                            if(!OrderSend(r,res)) Print("Ошибка BUY: %d", res.retcode); else Print("BUY #%d отправлен.", i+1);
+                            barsSinceLastTrade = 0;
                         }
+                        
                     }
                     // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
                     else if (short_probability >= short_score_threshold)
@@ -144,19 +154,19 @@ void OnTick()
                         double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
                         double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
 
-                        // Устанавливаем умный стоп-лосс и финальный тейк-профит на основе уровней
-                        double stop_loss = resistance + (SL_TP_BufferPips * 10 * point);
-                        double final_tp = support + (SL_TP_BufferPips * 10 * point);
+                        // Устанавливаем умный стоп-лосс и финальный тейк-профит с РАЗНЫМИ отступами
+                        double stop_loss = resistance + (StopLossBufferPips * 10 * point);
+                        double final_tp = support + (TakeProfitBufferPips * 10 * point);
 
                         for(int i = 0; i < NumberOfTrades; i++)
                         {
                            MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                           // Первый ордер с частичным тейком, остальные - с полным
                            double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
-
+                           
                            r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
-                           if(!OrderSend(r,res)) Print("Ошибка отправки ордера SELL: %d", res.retcode); else Print("SELL #%d отправлен.", i+1);
+                           if(!OrderSend(r,res)) Print("Ошибка SELL: %d", res.retcode); else Print("SELL #%d отправлен.", i+1);
+                           barsSinceLastTrade = 0;
                         }
                     }
                 }
