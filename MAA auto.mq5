@@ -2,13 +2,14 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.14"
+#property version "4.15"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
 input double FirstTargetRatio      = 0.5;    // Коэффициент для первого тейк-профита (0.5 = 50%)
 input double LotSize               = 0.01;   // ОБЩИЙ размер лота для сделки
-input int    SL_TP_BufferPips      = 15;     // Отступ для "умных" SL/TP от уровней в пипсах
+input int    StopLossBufferPips    = 15; // Отступ для Стоп-Лосса от уровня в пипсах
+input int    TakeProfitBufferPips  = 10; // Отступ для Тейк-Профита от уровня в пипсах
 
 //--- Входные параметры для сигналов
 input group "--- Пороги Сигналов ---"
