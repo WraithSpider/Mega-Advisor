@@ -27,7 +27,7 @@ input double MinATR_Value          = 0.00050;// Минимальное знач�
 
 
 //--- Прототипы функций ---
-void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
+void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob);
 void CheckD1Trend(int &long_score, int &short_score);
 void CheckDeepRSI(int &long_score, int &short_score);
 void CheckFractalDivergence(int &long_score, int &short_score);
@@ -100,7 +100,7 @@ void OnTick()
     {
         double long_probability = (double)long_score / total_score * 100;
         double short_probability = (double)short_score / total_score * 100;
-        UpdateDashboard(long_score, short_score, long_probability, short_probability);
+        UpdateDashboard(long_score, short_score, long_probability, short_probability, g_debug_log);
         
         string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
         Print(print_report);
@@ -174,7 +174,7 @@ void OnTick()
             }
         }
     }
-    else { UpdateDashboard(0,0,0,0); }
+    else { UpdateDashboard(0,0,0,0,0); }
 }
 
 
@@ -184,14 +184,29 @@ void OnTick()
 //|                                                                  |
 //+------------------------------------------------------------------+
 
-// --- Функция для D1 Тренда ---
-void CheckD1Trend(int &long_score, int &short_score){
+// --- Функция для D1 Тренда с записью в лог ---
+void CheckD1Trend(int &long_score, int &short_score)
+{
     int ema_d1_handle = iMA(_Symbol, PERIOD_D1, 50, 0, MODE_EMA, PRICE_CLOSE);
-    if(ema_d1_handle != INVALID_HANDLE) {
-        double ema_d1_buffer[]; ArraySetAsSeries(ema_d1_buffer, true);
-        MqlRates rates_d1[]; ArraySetAsSeries(rates_d1, true);
-        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) {
-            if(rates_d1[0].close > ema_d1_buffer[0]) long_score += 3; else short_score += 3;
+    if(ema_d1_handle != INVALID_HANDLE) 
+    {
+        double ema_d1_buffer[]; 
+        ArraySetAsSeries(ema_d1_buffer, true);
+        MqlRates rates_d1[]; 
+        ArraySetAsSeries(rates_d1, true);
+        
+        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) 
+        {
+            if(rates_d1[0].close > ema_d1_buffer[0]) 
+            {
+                long_score += 3;
+                g_debug_log += "D1 Trend: +3 Long\n"; // << ИЗМЕНЕНИЕ: Запись на "доску"
+            }
+            else 
+            {
+                short_score += 3;
+                g_debug_log += "D1 Trend: +3 Short\n"; // << ИЗМЕНЕНИЕ: Запись на "доску"
+            }
         }
         IndicatorRelease(ema_d1_handle);
     }
@@ -1065,54 +1080,20 @@ bool IsTrendStrongADX()
     return false; // Тренд слабый, торговля запрещена
 }
 
-// --- Функция для обновления панели на графике ---
-void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob){
-    string label_name1 = "MegaAnalysis_Line1";
-    string label_name2 = "MegaAnalysis_Line2";
-    string label_name3 = "MegaAnalysis_Line3";
+//+------------------------------------------------------------------+
+//| Вспомогательная функция для обновления инфо-панели на графике    |
+//| (Новая, простая версия с использованием Comment)                 |
+//+------------------------------------------------------------------+
+void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob)
+{
+    // --- Формируем финальный текст для вывода ---
+    string final_text = "--- Анализ Сигналов ---\n";
+    final_text += debug_log; // Добавляем детальные логи от функций
+    final_text += "--------------------------------\n";
+    final_text += StringFormat("ИТОГО Long/Short: %d / %d\n", long_score, short_score);
+    final_text += StringFormat("Вероятность Long: %.0f%%\n", long_prob);
+    final_text += StringFormat("Вероятность Short: %.0f%%", short_prob);
 
-    string text1 = StringFormat("Баллы Long/Short: %d / %d", long_score, short_score);
-    string text2 = StringFormat("Вероятность Long: %.0f%%", long_prob);
-    string text3 = StringFormat("Вероятность Short: %.0f%%", short_prob);
-
-    // --- Обновляем ЛЕЙБЛ 1 (Баллы) ---
-    ObjectDelete(0, label_name1);
-    if(ObjectCreate(0, label_name1, OBJ_LABEL, 0, 0, 0))
-    {
-        ObjectSetInteger(0, label_name1, OBJPROP_CORNER, CORNER_LEFT_LOWER);
-        ObjectSetInteger(0, label_name1, OBJPROP_XDISTANCE, 16);
-        ObjectSetInteger(0, label_name1, OBJPROP_YDISTANCE, 80);
-        ObjectSetString(0, label_name1, OBJPROP_FONT, "Arial Bold");
-        ObjectSetInteger(0, label_name1, OBJPROP_FONTSIZE, 10);
-        ObjectSetInteger(0, label_name1, OBJPROP_COLOR, clrSilver);
-        ObjectSetString(0, label_name1, OBJPROP_TEXT, text1);
-    }
-    
-    // --- Обновляем ЛЕЙБЛ 2 (Вероятность Long) ---
-    ObjectDelete(0, label_name2);
-    if(ObjectCreate(0, label_name2, OBJ_LABEL, 0, 0, 0))
-    {
-        ObjectSetInteger(0, label_name2, OBJPROP_CORNER, CORNER_LEFT_LOWER);
-        ObjectSetInteger(0, label_name2, OBJPROP_XDISTANCE, 16);
-        ObjectSetInteger(0, label_name2, OBJPROP_YDISTANCE, 60);
-        ObjectSetString(0, label_name2, OBJPROP_FONT, "Arial Bold");
-        ObjectSetInteger(0, label_name2, OBJPROP_FONTSIZE, 10);
-        ObjectSetInteger(0, label_name2, OBJPROP_COLOR, clrSilver);
-        ObjectSetString(0, label_name2, OBJPROP_TEXT, text2);
-    }
-
-    // --- Обновляем ЛЕЙБЛ 3 (Вероятность Short) ---
-    ObjectDelete(0, label_name3);
-    if(ObjectCreate(0, label_name3, OBJ_LABEL, 0, 0, 0))
-    {
-        ObjectSetInteger(0, label_name3, OBJPROP_CORNER, CORNER_LEFT_LOWER);
-        ObjectSetInteger(0, label_name3, OBJPROP_XDISTANCE, 16);
-        ObjectSetInteger(0, label_name3, OBJPROP_YDISTANCE, 40);
-        ObjectSetString(0, label_name3, OBJPROP_FONT, "Arial Bold");
-        ObjectSetInteger(0, label_name3, OBJPROP_FONTSIZE, 10);
-        ObjectSetInteger(0, label_name3, OBJPROP_COLOR, clrSilver);
-        ObjectSetString(0, label_name3, OBJPROP_TEXT, text3);
-    }
-    
-    ChartRedraw();
+    // --- Выводим весь текст на график одной командой ---
+    Comment(final_text);
 }
