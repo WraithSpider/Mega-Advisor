@@ -2,16 +2,19 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.07"
+#property version "4.09"
 
 //--- Входные параметры для торговли
-input bool   AllowMultipleTrades   = false;  // Разрешить несколько сделок одновременно?
-input double LotSize               = 0.01;   // Размер лота для сделки
-input int    SL_TP_BufferPips      = 10;     // Отступ для "умных" SL/TP от уровней в пипсах
+input int    NumberOfTrades   = 2;      // На сколько частей делить сделку (1 = обычная сделка)
+input double FirstTargetRatio = 0.5;   // Коэффициент для первого тейк-профита (0.5 = 50%)
+input double LotSize            = 0.02;   // ОБЩИЙ размер лота для сделки
+input int    StopLossPips       = 190;    // Стоп-лосс в пипсах
+input int    TakeProfitPips     = 90;     // ПОЛНЫЙ тейк-профит в пипсах
+input int    ADX_TrendStrength = 25;     // Минимальная сила тренда по ADX для торговли
 
 //--- Входные параметры для сигналов
-input int long_score_threshold  = 80;     // Порог в % для сигнала LONG
-input int short_score_threshold = 80;     // Порог в % для сигнала SHORT
+input int long_score_threshold  = 95;     // Порог в % для сигнала LONG
+input int short_score_threshold = 81;     // Порог в % для сигнала SHORT
 
 //--- Входные параметры для фильтров
 input double VolumeMultiplier = 2.0;      // Во сколько раз объем должен превышать средний
@@ -33,7 +36,7 @@ void CheckVolumeSpikes(int &long_score, int &short_score);
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
-
+void CheckADX(int &long_score, int &short_score);
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -71,6 +74,7 @@ void OnTick()
     CheckIchimoku(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
+    CheckADX(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -79,46 +83,67 @@ void OnTick()
     {
         double long_probability = (double)long_score / total_score * 100;
         double short_probability = (double)short_score / total_score * 100;
+        
         UpdateDashboard(long_score, short_score, long_probability, short_probability);
         
         string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
         Print(print_report);
 
-        if(IsVolatilitySufficient() == true)
+        // --- НОВАЯ ЛОГИКА ОТКРЫТИЯ СДЕЛОК ---
+
+        // Сначала проверяем, есть ли уже открытые позиции по этому символу.
+        // Если есть - ничего не делаем.
+        if(PositionSelect(_Symbol) == true)
         {
-            if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
+            Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+        }
+        else // Если позиций нет, проверяем сигналы
+        {
+            // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
+            if (long_probability >= long_score_threshold)
             {
-                Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-            }
-            else
-            {
-                double support=0, resistance=0;
-                if(GetNearestSupportResistance(support, resistance))
+                // Рассчитываем лот для каждой части сделки
+                double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
+
+                if(partial_lot < min_lot)
                 {
-                    if (long_probability >= long_score_threshold)
-                    {
-                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                        double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK), pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=LotSize; r.type=ORDER_TYPE_BUY;
-                        r.price=p; r.sl=support-(SL_TP_BufferPips*10*pt); r.tp=resistance-(SL_TP_BufferPips*10*pt);
-                        r.magic=12345; r.comment="Long by MAA";
-                        if(!OrderSend(r,res)) Print("Ошибка BUY: ",res.retcode); else Print("BUY отправлен");
-                    }
-                    else if (short_probability >= short_score_threshold)
-                    {
-                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                        double p = SymbolInfoDouble(_Symbol, SYMBOL_BID), pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=LotSize; r.type=ORDER_TYPE_SELL;
-                        r.price=p; r.sl=resistance+(SL_TP_BufferPips*10*pt); r.tp=support+(SL_TP_BufferPips*10*pt);
-                        r.magic=12345; r.comment="Short by MAA";
-                        if(!OrderSend(r,res)) Print("Ошибка SELL: ",res.retcode); else Print("SELL отправлен");
-                    }
+                   Print("Ошибка: Расчетный лот (%.2f) меньше минимально допустимого (%.2f).", partial_lot, min_lot);
+                   return;
+                }
+
+                Print("Получен сигнал LONG. Открываем %d частичных ордера...", NumberOfTrades);
+                double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+                double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                double stop_loss = price - (StopLossPips * 10 * point);
+                
+                // В цикле открываем нужное количество ордеров
+                for(int i = 0; i < NumberOfTrades; i++)
+                {
+                    MqlTradeRequest request; MqlTradeResult result; ZeroMemory(request); ZeroMemory(result);
+                    
+                    double take_profit = (i == 0) ? (price + (TakeProfitPips * FirstTargetRatio * 10 * point)) : (price + (TakeProfitPips * 10 * point));
+                    
+                    request.action = TRADE_ACTION_DEAL; request.symbol = _Symbol;
+                    request.volume = partial_lot; request.type = ORDER_TYPE_BUY;
+                    request.price = price; request.sl = stop_loss; request.tp = take_profit;
+                    request.magic = 12345; request.comment = "Long part " + (string)(i+1);
+                    
+                    if(!OrderSend(request, result)) { Print("Ошибка отправки ордера BUY #%d: %d", i+1, result.retcode); }
+                    else { Print("Ордер на ПОКУПКУ #%d успешно отправлен.", i+1); }
                 }
             }
+            // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
+            else if (short_probability >= short_score_threshold)
+            {
+                // ... (Аналогичная логика для продаж) ...
+            }
         }
-        else { Print("Торговля пропущена: низкая волатильность (ATR)."); }
     }
-    else { UpdateDashboard(0,0,0,0); }
+    else
+    {
+      UpdateDashboard(0,0,0,0);
+    }
 }
 
 //+------------------------------------------------------------------+
@@ -922,6 +947,65 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
                 Print("S/R Levels: Цена у уровня сопротивления. Очки Short +3");
             }
         }
+    }
+}
+
+// --- Функция анализа силы тренда ADX/DMI ---
+void CheckADX(int &long_score, int &short_score)
+{
+    // --- Получаем хэндл на индикатор ADX со стандартным периодом 14 ---
+    int adx_handle = iADX(_Symbol, _Period, 14);
+
+    if(adx_handle != INVALID_HANDLE)
+    {
+        // Готовим буферы для всех трех линий
+        double adx_main_buffer[], plus_di_buffer[], minus_di_buffer[];
+        int data_to_copy = 3; 
+        
+        ArraySetAsSeries(adx_main_buffer, true);
+        ArraySetAsSeries(plus_di_buffer, true);
+        ArraySetAsSeries(minus_di_buffer, true);
+        
+        // Копируем данные
+        if(CopyBuffer(adx_handle, 0, 0, data_to_copy, adx_main_buffer) > 0 &&      // Буфер 0: Главная линия ADX
+           CopyBuffer(adx_handle, 1, 0, data_to_copy, plus_di_buffer) > 0 &&       // Буфер 1: Линия +DI
+           CopyBuffer(adx_handle, 2, 0, data_to_copy, minus_di_buffer) > 0)      // Буфер 2: Линия -DI
+        {
+            // --- 1. Фильтр силы тренда ---
+            double adx_current = adx_main_buffer[1]; // Значение ADX на последней закрытой свече
+
+            if(adx_current >= ADX_TrendStrength) // Проверяем, есть ли вообще тренд
+            {
+                // --- 2. Если тренд есть, ищем пересечение ---
+                double plus_di_current = plus_di_buffer[1];
+                double plus_di_prev = plus_di_buffer[2];
+                double minus_di_current = minus_di_buffer[1];
+                double minus_di_prev = minus_di_buffer[2];
+
+                // Бычье пересечение: +DI пересекает -DI снизу вверх
+                if(plus_di_prev <= minus_di_prev && plus_di_current > minus_di_current)
+                {
+                    long_score += 2;
+                    Print("ADX: Обнаружено бычье пересечение (+DI > -DI). Очки Long +2");
+                }
+                
+                // Медвежье пересечение: -DI пересекает +DI снизу вверх
+                if(minus_di_prev <= plus_di_prev && minus_di_current > plus_di_current)
+                {
+                    short_score += 2;
+                    Print("ADX: Обнаружено медвежье пересечение (-DI > +DI). Очки Short +2");
+                }
+            }
+            else
+            {
+                Print("ADX Фильтр: Тренд слишком слабый (%.2f < %d). Сигналы DMI игнорируются.", adx_current, ADX_TrendStrength);
+            }
+        }
+        IndicatorRelease(adx_handle);
+    }
+    else
+    {
+        Print("Ошибка: не удалось создать хэндл для индикатора ADX.");
     }
 }
 
