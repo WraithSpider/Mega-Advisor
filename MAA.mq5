@@ -2,17 +2,12 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.02"
+#property version "4.04"
 
-//--- Входные параметры
+//--- Входные параметры для торговли
 input bool   AllowMultipleTrades   = false;
 input double LotSize               = 0.01;
-input int    StopLossPips          = 40;
-input int    TakeProfitPips        = 100;
-input int    long_score_threshold  = 75;
-input int    short_score_threshold = 81;
-input double MinATR_Value = 0.00050; 
-input double VolumeMultiplier = 2.0;
+input int    SL_TP_BufferPips      = 10;   // Отступ для SL/TP от уровней в пипсах
 
 //--- Прототипы функций
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -29,6 +24,7 @@ void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
 void CheckStochastic(int &long_score, int &short_score);
 void CheckFibonacciRetracement(int &long_score, int &short_score);
+void CheckVWAP(int &long_score, int &short_score);
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -67,7 +63,9 @@ void OnTick()
     CheckVolumeSpikes(long_score, short_score);
     CheckStochastic(long_score, short_score);
     CheckFibonacciRetracement(long_score, short_score);
-    
+    CheckVWAP(long_score, short_score);
+
+
     // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
@@ -87,68 +85,49 @@ void OnTick()
         {
             // --- ЛОГИКА ОТКРЫТИЯ СДЕЛОК ---
             if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
-            {
-                Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-            }
-            else
-            {
-                // Если сигнал на ПОКУПКУ (LONG) достаточно сильный
-                if (long_probability >= long_score_threshold)
-                {
-                    MqlTradeRequest request; MqlTradeResult  result; 
-                    ZeroMemory(request); ZeroMemory(result);
-                    
-                    double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK); 
-                    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                    
-                    request.action = TRADE_ACTION_DEAL;
-                    request.symbol = _Symbol;
-                    request.volume = LotSize;
-                    request.type = ORDER_TYPE_BUY;
-                    request.price = price;
-                    request.sl = price - (StopLossPips * 10 * point);
-                    request.tp = price + (TakeProfitPips * 10 * point);
-                    request.magic = 12345; 
-                    request.comment = "Long by MEGA_ANALYSIS_Advisor";
-                    
-                    if(!OrderSend(request, result)) 
-                    {
-                        Print("Ошибка отправки ордера BUY: ", result.retcode, " - ", result.comment);
-                    }
-                    else 
-                    {
-                        Print("Ордер на ПОКУПКУ успешно отправлен.");
-                    }
-                }
-                // Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный
-                else if (short_probability >= short_score_threshold)
-                {
-                    MqlTradeRequest request; MqlTradeResult  result; 
-                    ZeroMemory(request); ZeroMemory(result);
-                    
-                    double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-                    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-
-                    request.action = TRADE_ACTION_DEAL;
-                    request.symbol = _Symbol;
-                    request.volume = LotSize;
-                    request.type = ORDER_TYPE_SELL;
-                    request.price = price;
-                    request.sl = price + (StopLossPips * 10 * point);
-                    request.tp = price - (TakeProfitPips * 10 * point);
-                    request.magic = 12345;
-                    request.comment = "Short by MEGA_ANALYSIS_Advisor";
-                    
-                    if(!OrderSend(request, result)) 
-                    {
-                        Print("Ошибка отправки ордера SELL: ", result.retcode, " - ", result.comment);
-                    }
-                    else 
-                    {
-                        Print("Ордер на ПРОДАЖУ успешно отправлен.");
-                    }
-                }
-            }
+{
+    Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+}
+else
+{
+    // --- Получаем уровни поддержки и сопротивления ---
+    double support=0, resistance=0;
+    if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
+    {
+        // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
+        if (long_probability >= long_score_threshold)
+        {
+            MqlTradeRequest request; MqlTradeResult result; ZeroMemory(request); ZeroMemory(result);
+            double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+            double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+            
+            request.action = TRADE_ACTION_DEAL; request.symbol = _Symbol;
+            request.volume = LotSize; request.type = ORDER_TYPE_BUY; request.price = price;
+            request.sl = support - (SL_TP_BufferPips * 10 * point);     // << УМНЫЙ СТОП-ЛОСС
+            request.tp = resistance - (SL_TP_BufferPips * 10 * point); // << УМНЫЙ ТЕЙК-ПРОФИТ
+            request.magic = 12345; request.comment = "Long by MEGA_ANALYSIS_Advisor";
+            
+            if(!OrderSend(request, result)) { Print("Ошибка отправки ордера BUY: ", result.retcode); }
+            else { Print("Ордер на ПОКУПКУ успешно отправлен."); }
+        }
+        // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
+        else if (short_probability >= short_score_threshold)
+        {
+            MqlTradeRequest request; MqlTradeResult result; ZeroMemory(request); ZeroMemory(result);
+            double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+            double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+            
+            request.action = TRADE_ACTION_DEAL; request.symbol = _Symbol;
+            request.volume = LotSize; request.type = ORDER_TYPE_SELL; request.price = price;
+            request.sl = resistance + (SL_TP_BufferPips * 10 * point);  // << УМНЫЙ СТОП-ЛОСС
+            request.tp = support + (SL_TP_BufferPips * 10 * point);   // << УМНЫЙ ТЕЙК-ПРОФИТ
+            request.magic = 12345; request.comment = "Short by MEGA_ANALYSIS_Advisor";
+            
+            if(!OrderSend(request, result)) { Print("Ошибка отправки ордера SELL: ", result.retcode); }
+            else { Print("Ордер на ПРОДАЖУ успешно отправлен."); }
+        }
+    }
+}
         }
         else
         {
@@ -800,6 +779,108 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
     }
 
     IndicatorRelease(zigzag_handle);
+}
+
+// --- Функция анализа положения цены относительно VWAP ---
+void CheckVWAP(int &long_score, int &short_score)
+{
+    // Указываем имя файла вашего скачанного индикатора
+    string indicator_path = "Basic VWAP"; 
+    
+    // Номер буфера, который мы определили по вашему скриншоту
+    int vwap_buffer_number = 0;
+
+    // ПРИМЕЧАНИЕ: Если у индикатора есть входные параметры (кроме цветов),
+    // их нужно будет добавить в вызов iCustom через запятую после indicator_path.
+    // Судя по названию "Basic VWAP", их скорее всего нет.
+    int vwap_handle = iCustom(_Symbol, _Period, indicator_path);
+
+    if(vwap_handle != INVALID_HANDLE)
+    {
+        double vwap_buffer[];
+        ArraySetAsSeries(vwap_buffer, true);
+
+        // Копируем значение VWAP с последней закрытой свечи
+        if(CopyBuffer(vwap_handle, vwap_buffer_number, 1, 1, vwap_buffer) > 0)
+        {
+            double vwap_value = vwap_buffer[0];
+            
+            // Если VWAP рассчитан, продолжаем
+            if(vwap_value > 0)
+            {
+                // Получаем текущую цену
+                MqlRates rates[];
+                if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0)
+                {
+                    double price_close = rates[0].close;
+
+                    // --- Применяем логику: +2 очка за торговлю по правильную сторону от VWAP ---
+                    if(price_close > vwap_value)
+                    {
+                        long_score += 2;
+                        Print("VWAP: Цена выше VWAP. Очки Long +2");
+                    }
+                    if(price_close < vwap_value)
+                    {
+                        short_score += 2;
+                        Print("VWAP: Цена ниже VWAP. Очки Short +2");
+                    }
+                }
+            }
+        }
+        IndicatorRelease(vwap_handle);
+    }
+    else
+    {
+        Print("Ошибка: не удалось создать хэндл для индикатора VWAP. Проверьте имя в indicator_path.");
+    }
+}
+
+// --- Функция для поиска уровней Поддержки и Сопротивления по фракталам ---
+bool GetNearestSupportResistance(double &support_level, double &resistance_level)
+{
+    int history_bars = 100; // На скольких последних барах ищем уровни
+    int fractals_handle = iFractals(_Symbol, _Period);
+    if(fractals_handle == INVALID_HANDLE) return(false);
+
+    double fractals_up_buffer[], fractals_down_buffer[];
+    ArraySetAsSeries(fractals_up_buffer, true);
+    ArraySetAsSeries(fractals_down_buffer, true);
+
+    if(CopyBuffer(fractals_handle, 0, 0, history_bars, fractals_up_buffer) < 3 ||
+       CopyBuffer(fractals_handle, 1, 0, history_bars, fractals_down_buffer) < 3)
+    {
+        IndicatorRelease(fractals_handle);
+        return(false);
+    }
+    
+    // Ищем самый высокий пик (сопротивление) и самую низкую впадину (поддержку)
+    double highest_high = 0;
+    double lowest_low = 999999; // Инициализируем очень большим значением
+
+    for(int i = 3; i < history_bars; i++)
+    {
+        if(fractals_up_buffer[i] != EMPTY_VALUE && fractals_up_buffer[i] > highest_high)
+        {
+            highest_high = fractals_up_buffer[i];
+        }
+        if(fractals_down_buffer[i] != EMPTY_VALUE && fractals_down_buffer[i] < lowest_low)
+        {
+            lowest_low = fractals_down_buffer[i];
+        }
+    }
+
+    IndicatorRelease(fractals_handle);
+
+    // Если уровни найдены, возвращаем их и сообщаем об успехе
+    if(highest_high > 0 && lowest_low < 999999)
+    {
+        resistance_level = highest_high;
+        support_level = lowest_low;
+        return(true);
+    }
+    
+    return(false);
 }
 
 // --- Функция для обновления панели на графике ---
