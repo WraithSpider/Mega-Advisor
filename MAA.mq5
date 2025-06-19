@@ -2,11 +2,10 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.06"
+#property version "4.07"
 
 //--- Входные параметры для торговли
-input int    NumberOfTrades   = 2;      // На сколько частей делить сделку (1 = обычная сделка)
-input double FirstTargetRatio = 0.5;   // Коэффициент для первого тейк-профита (0.5 = 50%)
+input bool   AllowMultipleTrades   = false;  // Разрешить несколько сделок одновременно?
 input double LotSize               = 0.01;   // Размер лота для сделки
 input int    SL_TP_BufferPips      = 10;     // Отступ для "умных" SL/TP от уровней в пипсах
 
@@ -15,12 +14,11 @@ input int long_score_threshold  = 80;     // Порог в % для сигнал
 input int short_score_threshold = 80;     // Порог в % для сигнала SHORT
 
 //--- Входные параметры для фильтров
-input int    SR_ProximityPips      = 10; 
 input double VolumeMultiplier = 2.0;      // Во сколько раз объем должен превышать средний
-input double MinATR_Value     = 0.00080;  // Минимальное значение ATR для торговли
+input double MinATR_Value     = 0.00050;  // Минимальное значение ATR для торговли
+input int    SR_ProximityPips = 10;      // Зона приближения к уровням S/R в пипсах
 
-
-//--- Прототипы функций
+//--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
 void CheckD1Trend(int &long_score, int &short_score);
 void CheckDeepRSI(int &long_score, int &short_score);
@@ -31,12 +29,11 @@ void CheckSMACross(int &long_score, int &short_score);
 void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
-void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
-void CheckStochastic(int &long_score, int &short_score);
-void CheckFibonacciRetracement(int &long_score, int &short_score);
-void CheckVWAP(int &long_score, int &short_score);
+bool IsVolatilitySufficient();
+bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
+
 
 //--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
@@ -62,6 +59,7 @@ void OnTick()
     int short_score = 0;
     Print("--- Новый бар! Начало полного анализа ---");
 
+    //--- ШАГ 1: СБОР ВСЕХ СИГНАЛОВ ---
     CheckD1Trend(long_score, short_score);
     CheckDeepRSI(long_score, short_score);
     CheckFractalDivergence(long_score, short_score);
@@ -71,139 +69,56 @@ void OnTick()
     CheckWMATrend(long_score, short_score);
     CheckSmartBBands(long_score, short_score);
     CheckIchimoku(long_score, short_score);
-    CheckBollingerSqueeze(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
-    CheckStochastic(long_score, short_score);
-    CheckFibonacciRetracement(long_score, short_score);
-    CheckVWAP(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
-
-
-    // --- Шаг 3: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
+    
+    //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
     if (total_score > 0)
     {
         double long_probability = (double)long_score / total_score * 100;
         double short_probability = (double)short_score / total_score * 100;
-        
         UpdateDashboard(long_score, short_score, long_probability, short_probability);
         
-        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",
-                                            _Symbol, EnumToString(_Period), long_score, short_score, long_probability, short_probability);
+        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
         Print(print_report);
 
-        // --- ПРОВЕРКА ФИЛЬТРА ВОЛАТИЛЬНОСТИ ---
         if(IsVolatilitySufficient() == true)
         {
-            // --- ЛОГИКА ОТКРЫТИЯ СДЕЛОК ---
             if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
-{
-    Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-}
-else
-{
-    // --- Получаем уровни поддержки и сопротивления ---
-    double support=0, resistance=0;
-    if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
-    {
-           // --- ЛОГИКА ОТКРЫТИЯ СДЕЛОК (с частичной фиксацией прибыли) ---
-   // Проверяем, есть ли у нас уже открытые позиции по этому символу.
-   // Если есть, то новые не открываем, чтобы не усложнять.
-   if(PositionSelect(_Symbol) == true)
-   {
-       Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-   }
-   else
-   {
-       // Рассчитываем размер лота для каждой части ордера
-       double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
-   
-       // Проверяем, не стал ли лот слишком маленьким для вашего брокера
-       double min_lot = SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN);
-       if(partial_lot < min_lot)
-       {
-           Print("Ошибка: Расчетный лот (%.2f) меньше минимально допустимого (%.2f). Сделка невозможна.", partial_lot, min_lot);
-           return; // Выходим, если лот слишком мал
-       }
-       
-       // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
-       if (long_probability >= long_score_threshold)
-       {
-           Print("Получен сигнал LONG. Открываем %d частичных ордера...", NumberOfTrades);
-           double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-           double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-           double stop_loss = price - (StopLossPips * 10 * point);
-           
-           // Открываем ордера в цикле
-           for(int i = 0; i < NumberOfTrades; i++)
-           {
-               MqlTradeRequest request; MqlTradeResult result;
-               ZeroMemory(request); ZeroMemory(result);
-               
-               // Расчет тейк-профита
-               double take_profit;
-               if(i == 0) // Для первого ордера берем короткий тейк-профит
-               {
-                   take_profit = price + (TakeProfitPips * FirstTargetRatio * 10 * point);
-               }
-               else // Для остальных - полный тейк-профит
-               {
-                   take_profit = price + (TakeProfitPips * 10 * point);
-               }
-               
-               request.action = TRADE_ACTION_DEAL; request.symbol = _Symbol;
-               request.volume = partial_lot; request.type = ORDER_TYPE_BUY;
-               request.price = price; request.sl = stop_loss; request.tp = take_profit;
-               request.magic = 12345; request.comment = "Long part " + (string)(i+1);
-               
-               if(!OrderSend(request, result)) { Print("Ошибка отправки ордера BUY #%d: %d", i+1, result.retcode); }
-               else { Print("Ордер на ПОКУПКУ #%d успешно отправлен.", i+1); }
-           }
-       }
-       // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
-       else if (short_probability >= short_score_threshold)
-       {
-           Print("Получен сигнал SHORT. Открываем %d частичных ордера...", NumberOfTrades);
-           double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-           double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-           double stop_loss = price + (StopLossPips * 10 * point);
-   
-           // Открываем ордера в цикле
-           for(int i = 0; i < NumberOfTrades; i++)
-           {
-               MqlTradeRequest request; MqlTradeResult result;
-               ZeroMemory(request); ZeroMemory(result);
-               
-               double take_profit;
-               if(i == 0) { take_profit = price - (TakeProfitPips * FirstTargetRatio * 10 * point); }
-               else { take_profit = price - (TakeProfitPips * 10 * point); }
-               
-               request.action = TRADE_ACTION_DEAL; request.symbol = _Symbol;
-               request.volume = partial_lot; request.type = ORDER_TYPE_SELL;
-               request.price = price; request.sl = stop_loss; request.tp = take_profit;
-               request.magic = 12345; request.comment = "Short part " + (string)(i+1);
-               
-               if(!OrderSend(request, result)) { Print("Ошибка отправки ордера SELL #%d: %d", i+1, result.retcode); }
-               else { Print("Ордер на ПРОДАЖУ #%d успешно отправлен.", i+1); }
-           }
-       }
-   }
-       }
-   }
+            {
+                Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+            }
+            else
+            {
+                double support=0, resistance=0;
+                if(GetNearestSupportResistance(support, resistance))
+                {
+                    if (long_probability >= long_score_threshold)
+                    {
+                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                        double p = SymbolInfoDouble(_Symbol, SYMBOL_ASK), pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=LotSize; r.type=ORDER_TYPE_BUY;
+                        r.price=p; r.sl=support-(SL_TP_BufferPips*10*pt); r.tp=resistance-(SL_TP_BufferPips*10*pt);
+                        r.magic=12345; r.comment="Long by MAA";
+                        if(!OrderSend(r,res)) Print("Ошибка BUY: ",res.retcode); else Print("BUY отправлен");
+                    }
+                    else if (short_probability >= short_score_threshold)
+                    {
+                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                        double p = SymbolInfoDouble(_Symbol, SYMBOL_BID), pt = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=LotSize; r.type=ORDER_TYPE_SELL;
+                        r.price=p; r.sl=resistance+(SL_TP_BufferPips*10*pt); r.tp=support+(SL_TP_BufferPips*10*pt);
+                        r.magic=12345; r.comment="Short by MAA";
+                        if(!OrderSend(r,res)) Print("Ошибка SELL: ",res.retcode); else Print("SELL отправлен");
+                    }
+                }
+            }
         }
-        else
-        {
-            // Этот блок выполнится, если фильтр ATR запретил торговлю
-            Print("Торговля пропущена: низкая волатильность (ATR).");
-        }
+        else { Print("Торговля пропущена: низкая волатильность (ATR)."); }
     }
-    else // Этот else относится к "if (total_score > 0)"
-    {
-      UpdateDashboard(0,0,0,0);
-    }
-        
-
+    else { UpdateDashboard(0,0,0,0); }
 }
 
 //+------------------------------------------------------------------+
