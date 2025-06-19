@@ -40,7 +40,8 @@ void CheckVolumeSpikes(int &long_score, int &short_score);
 bool IsVolatilitySufficient();
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
-
+void CheckADXCrossover(int &long_score, int &short_score);
+bool IsTrendStrongADX()
 
 //+------------------------------------------------------------------+
 //| Стандартные функции советника                                    |
@@ -88,6 +89,7 @@ void OnTick()
     CheckIchimoku(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
+    CheckADXCrossover(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -978,8 +980,31 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
     }
 }
 
+// --- Функция-фильтр: проверяет, достаточно ли сильный тренд по ADX ---
+bool IsTrendStrongADX()
+{
+    int adx_handle = iADX(_Symbol, _Period, 14);
+    if(adx_handle == INVALID_HANDLE) return false; // Если ошибка, на всякий случай запрещаем торговлю
+
+    double adx_buffer[];
+    ArraySetAsSeries(adx_buffer, true);
+
+    if(CopyBuffer(adx_handle, 0, 1, 1, adx_buffer) > 0)
+    {
+        IndicatorRelease(adx_handle);
+        if(adx_buffer[0] >= ADX_TrendStrength)
+        {
+            return true; // Тренд сильный, торговля разрешена
+        }
+    }
+    
+    IndicatorRelease(adx_handle);
+    Print("Торговля заблокирована фильтром ADX: на рынке нет сильного тренда.");
+    return false; // Тренд слабый, торговля запрещена
+}
+
 // --- Функция анализа силы тренда ADX/DMI ---
-void CheckADX(int &long_score, int &short_score)
+void CheckADXCrossover(int &long_score, int &short_score)
 {
     // --- Получаем хэндл на индикатор ADX со стандартным периодом 14 ---
     int adx_handle = iADX(_Symbol, _Period, 14);
