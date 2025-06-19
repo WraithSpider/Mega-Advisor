@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.17"
+#property version "4.18"
 string g_debug_log = "";
 
 //--- Входные параметры для торговли
