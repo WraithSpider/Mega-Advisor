@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.15"
+#property version "4.16"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -96,91 +96,76 @@ void OnTick()
         string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
         Print(print_report);
 
-        // --- НОВЫЙ ФИЛЬТР: Проверка "периода затишья" ---
+        // --- Проверяем все фильтры перед торговлей ---
         if(barsSinceLastTrade < MinBarsBetweenTrades)
         {
             Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
         }
-        else // Если прошло достаточно свечей, продолжаем проверки
+        else if(!IsVolatilitySufficient())
         {
-            // Проверяем фильтр волатильности
-            if(IsVolatilitySufficient() == true)
+            Print("Торговля пропущена: низкая волатильность (ATR).");
+        }
+        else if(PositionSelect(_Symbol) == true)
+        {
+            Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+        }
+        else // Если все фильтры пройдены, приступаем к торговле
+        {
+            double support=0, resistance=0;
+            if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
             {
-                // Проверяем, есть ли уже открытые позиции
-                if(PositionSelect(_Symbol) == true)
+                // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
+                if (long_probability >= long_score_threshold)
                 {
-                    Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-                }
-                else // Если позиций нет, проверяем сигналы и открываем сделку/сделки
-                {
-                double support=0, resistance=0;
-                if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
-                {
-                    // Рассчитываем лот для каждой части сделки
                     double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
-                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN))
+                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
+
+                    Print("Получен сигнал LONG. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
+                    double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK), point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                    
+                    // Используем РАЗДЕЛЬНЫЕ отступы для SL и TP
+                    double stop_loss = support - (StopLossBufferPips * 10 * point);
+                    double final_tp = resistance - (TakeProfitBufferPips * 10 * point);
+                    
+                    for(int i = 0; i < NumberOfTrades; i++)
                     {
-                       Print("Ошибка: Расчетный лот (%.2f) меньше минимально допустимого.", partial_lot);
-                       return;
+                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                        double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+
+                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
+                        r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by MAA";
+                        if(!OrderSend(r,res)) { Print("Ошибка BUY: %d", res.retcode); }
+                        else { Print("BUY #%d отправлен.", i+1); barsSinceLastTrade = 0; } // Сбрасываем счетчик
                     }
-                
-                    // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
-                    if (long_probability >= long_score_threshold)
+                }
+                // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
+                else if (short_probability >= short_score_threshold)
+                {
+                    double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
+
+                    Print("Получен сигнал SHORT. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
+                    double price = SymbolInfoDouble(_Symbol, SYMBOL_BID), point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+
+                    // Используем РАЗДЕЛЬНЫЕ отступы для SL и TP
+                    double stop_loss = resistance + (StopLossBufferPips * 10 * point);
+                    double final_tp = support + (TakeProfitBufferPips * 10 * point);
+
+                    for(int i = 0; i < NumberOfTrades; i++)
                     {
-                        Print("Получен сигнал LONG. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
-                        double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-                        double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                        
-                        // Устанавливаем умный стоп-лосс и финальный тейк-профит с РАЗНЫМИ отступами
-                        double stop_loss = support - (StopLossBufferPips * 10 * point);
-                        double final_tp = resistance - (TakeProfitBufferPips * 10 * point);
-                        
-                        for(int i = 0; i < NumberOfTrades; i++)
-                        {
-                            MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                            double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
-
-                            r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
-                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by MAA";
-                            if(!OrderSend(r,res)) Print("Ошибка BUY: %d", res.retcode); else Print("BUY #%d отправлен.", i+1);
-                            barsSinceLastTrade = 0;
-                        }
-                        
-                    }
-                    // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
-                    else if (short_probability >= short_score_threshold)
-                    {
-                        Print("Получен сигнал SHORT. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
-                        double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-                        double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-
-                        // Устанавливаем умный стоп-лосс и финальный тейк-профит с РАЗНЫМИ отступами
-                        double stop_loss = resistance + (StopLossBufferPips * 10 * point);
-                        double final_tp = support + (TakeProfitBufferPips * 10 * point);
-
-                        for(int i = 0; i < NumberOfTrades; i++)
-                        {
-                           MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                           double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
-                           
-                           r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
-                           r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
-                           if(!OrderSend(r,res)) Print("Ошибка SELL: %d", res.retcode); else Print("SELL #%d отправлен.", i+1);
-                           barsSinceLastTrade = 0;
-                        }
+                       MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                       double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
+                       
+                       r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
+                       r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
+                       if(!OrderSend(r,res)) { Print("Ошибка SELL: %d", res.retcode); }
+                       else { Print("SELL #%d отправлен.", i+1); barsSinceLastTrade = 0; } // Сбрасываем счетчик
                     }
                 }
             }
         }
-        else 
-        { 
-            Print("Торговля пропущена: низкая волатильность (ATR)."); 
-        }
     }
-    else 
-    { 
-      UpdateDashboard(0,0,0,0); 
-    }
+    else { UpdateDashboard(0,0,0,0); }
 }
 
 
