@@ -44,10 +44,6 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
 void CheckADXCrossover(int &long_score, int &short_score);
 bool IsTrendStrongADX();
 
-//+------------------------------------------------------------------+
-//| Expert initialization function                                   |
-//+------------------------------------------------------------------+
-// ...
 
 //+------------------------------------------------------------------+
 //| Стандартные функции советника                                    |
@@ -81,6 +77,7 @@ void OnTick()
     // --- Шаг 0: Инициализация ---
     int long_score = 0;
     int short_score = 0;
+    g_debug_log = "";
 
     //--- ШАГ 1: СБОР ВСЕХ СИГНАЛОВ ---
     CheckD1Trend(long_score, short_score);
