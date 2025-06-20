@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.40"
+#property version "4.41"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -788,13 +788,12 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
 // --- Функция-фильтр по волатильности ATR ---
 bool IsVolatilitySufficient()
 {
-    int atr_handle = iATR(_Symbol, _Period, 14); // Стандартный период ATR - 14
+    int atr_handle = iATR(_Symbol, _Period, 14);
     if(atr_handle != INVALID_HANDLE)
     {
         double atr_buffer[];
         ArraySetAsSeries(atr_buffer, true);
         
-        // Копируем значение ATR с последней закрытой свечи
         if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
         {
             double current_atr = atr_buffer[0];
@@ -803,7 +802,8 @@ bool IsVolatilitySufficient()
             // Сравниваем текущий ATR с нашим пороговым значением
             if(current_atr < MinATR_Value)
             {
-                if(EnableDebugLogs) Print("Фильтр ATR: Волатильность слишком низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
+                // Используем PrintFormat для правильного вывода чисел
+                if(EnableDebugLogs) PrintFormat("Фильтр ATR: Волатильность низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
                 return false; // Волатильность недостаточна
             }
             else
@@ -813,7 +813,10 @@ bool IsVolatilitySufficient()
         }
         IndicatorRelease(atr_handle);
     }
-    return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
+    
+    // Если не удалось получить ATR, на всякий случай запрещаем торговлю
+    if(EnableDebugLogs) Print("Фильтр ATR: Ошибка получения данных ATR.");
+    return false; 
 }
 
 // --- Функция анализа Стохастического Осциллятора ---
