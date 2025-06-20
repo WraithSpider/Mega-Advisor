@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.30"
+#property version "4.31"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -41,6 +41,7 @@ void CheckADXCrossover(int &long_score, int &short_score);
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
 void CheckStochastic(int &long_score, int &short_score);
 void CheckBollingerSqueeze(int &long_score, int &short_score);
+void CheckFibonacciRetracement(int &long_score, int &short_score);
 
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -95,7 +96,8 @@ void OnTick()
     CheckADXCrossover(long_score, short_score);
     CheckStochastic(long_score, short_score);
     CheckBollingerSqueeze(long_score, short_score);
-    
+    CheckFibonacciRetracement(long_score, short_score);
+
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
@@ -873,96 +875,94 @@ void CheckVolumeSpikes(int &long_score, int &short_score)
 // --- Функция анализа отката по Фибоначчи с помощью ZigZag ---
 void CheckFibonacciRetracement(int &long_score, int &short_score)
 {
-    // --- Получаем хэндл на индикатор ZigZag ---
-    // Стандартные параметры ZigZag: ExtDepth=12, ExtDeviation=5, ExtBackstep=3
     int zigzag_handle = iCustom(_Symbol, _Period, "Examples\\ZigZag", 12, 5, 3);
+    if(zigzag_handle == INVALID_HANDLE) { Print("Fibo: Ошибка создания хэндла ZigZag."); return; }
 
-    if(zigzag_handle == INVALID_HANDLE)
-    {
-        Print("Ошибка: не удалось создать хэндл для индикатора ZigZag.");
-        return;
-    }
-
-    // --- Готовим буфер и копируем данные ЗигЗага ---
+    // Копируем данные ЗигЗага за последние 300 свечей
+    int history_bars = 300;
     double zigzag_buffer[];
     ArraySetAsSeries(zigzag_buffer, true);
-    
-    // Пытаемся скопировать 3 последних значения. Если их меньше, значит истории мало.
-    if(CopyBuffer(zigzag_handle, 0, 0, 3, zigzag_buffer) < 3)
+    if(CopyBuffer(zigzag_handle, 0, 0, history_bars, zigzag_buffer) < 3)
     {
+        Print("Fibo: Недостаточно истории для анализа ZigZag.");
         IndicatorRelease(zigzag_handle);
-        return; 
+        return;
     }
     
     // --- Ищем 3 последние, непустые точки ЗигЗага ---
-    double last_point = 0, prev_point = 0, pre_prev_point = 0;
+    double points_price[3]; // Массив для хранения цен трех точек
+    int    points_bar[3];   // Массив для хранения индексов баров трех точек
     int points_found = 0;
-    for(int i = 0; i < 300; i++) // Ищем в последних 300 барах
+    
+    for(int i = 3; i < history_bars; i++)
     {
-        if(CopyBuffer(zigzag_handle, 0, i, 1, zigzag_buffer) > 0 && zigzag_buffer[0] > 0)
+        if(zigzag_buffer[i] != EMPTY_VALUE)
         {
-            if(points_found == 0) last_point = zigzag_buffer[0];
-            if(points_found == 1) prev_point = zigzag_buffer[0];
-            if(points_found == 2) { pre_prev_point = zigzag_buffer[0]; break; }
+            points_price[points_found] = zigzag_buffer[i];
+            points_bar[points_found] = i;
             points_found++;
+            if(points_found == 3) break; // Нашли три точки, выходим из цикла
         }
     }
 
-    // --- Анализируем последнюю волну, если нашли 3 точки ---
-    if(points_found == 2)
+    IndicatorRelease(zigzag_handle); 
+
+    // --- Анализируем последнюю волну, только если нашли ровно 3 точки ---
+    if(points_found == 3)
     {
+        // Точки хранятся в обратном порядке: [0] - самая новая, [2] - самая старая
+        double newest_point_price = points_price[0];
+        double prev_point_price = points_price[1];
+        double pre_prev_point_price = points_price[2];
+        
         MqlRates current_rate[];
-        CopyRates(_Symbol, _Period, 0, 1, current_rate);
+        if(CopyRates(_Symbol, _Period, 0, 1, current_rate) < 1) return;
         double current_price = current_rate[0].close;
 
-        // --- Сценарий 1: Последняя волна была ВОСХОДЯЩЕЙ (prev -> last) ---
-        if(last_point > prev_point && pre_prev_point < prev_point)
+        // --- Сценарий 1: Последняя волна была ВОСХОДЯЩЕЙ (предыдущая точка ниже последней) ---
+        if(newest_point_price > prev_point_price)
         {
-            double swing_high = last_point;
-            double swing_low = prev_point;
+            double swing_high = newest_point_price;
+            double swing_low = prev_point_price;
             double swing_range = swing_high - swing_low;
-            double fibo_61_8_level = swing_high - swing_range * 0.618; // Уровень отката 61.8%
+            if(swing_range == 0) return; // Защита от деления на ноль
 
-            // Проверяем, находится ли текущая цена около этого уровня поддержки
-            if(MathAbs(current_price - fibo_61_8_level) < (_Point * 10)) // Погрешность в 10 пунктов
+            double fibo_61_8_level = swing_high - swing_range * 0.618;
+            
+            if(MathAbs(current_price - fibo_61_8_level) < (SR_ProximityPips * 10 * _Point))
             {
                 long_score += 4;
-                Print("Fibonacci: Обнаружен откат к уровню поддержки 61.8%%. Очки Long +4");
+                Print("Fibo Signal: Обнаружен откат к уровню поддержки 61.8%%! (+4 очка Long)");
             }
         }
         
-        // --- Сценарий 2: Последняя волна была НИСХОДЯЩЕЙ (prev -> last) ---
-        if(last_point < prev_point && pre_prev_point > prev_point)
+        // --- Сценарий 2: Последняя волна была НИСХОДЯЩЕЙ (предыдущая точка выше последней) ---
+        else if(newest_point_price < prev_point_price)
         {
-            double swing_high = prev_point;
-            double swing_low = last_point;
+            Print("Fibo: Обнаружена нисходящая волна. Ищу откат для продажи.");
+            double swing_high = prev_point_price;
+            double swing_low = newest_point_price;
             double swing_range = swing_high - swing_low;
-            double fibo_61_8_level = swing_low + swing_range * 0.618; // Уровень отката 61.8%
+            if(swing_range == 0) return;
 
-            // Проверяем, находится ли текущая цена около этого уровня сопротивления
-            if(MathAbs(current_price - fibo_61_8_level) < (_Point * 10)) // Погрешность в 10 пунктов
+            double fibo_61_8_level = swing_low + swing_range * 0.618;
+
+            if(MathAbs(current_price - fibo_61_8_level) < (SR_ProximityPips * 10 * _Point))
             {
                 short_score += 4;
-                Print("Fibonacci: Обнаружен откат к уровню сопротивления 61.8%%. Очки Short +4");
+                Print("Fibo Signal: Обнаружен откат к уровню сопротивления 61.8%%! (+4 очка Short)");
             }
         }
     }
-
-    IndicatorRelease(zigzag_handle);
 }
 
 // --- Функция анализа положения цены относительно VWAP ---
 void CheckVWAP(int &long_score, int &short_score)
 {
-    // Указываем имя файла вашего скачанного индикатора
     string indicator_path = "Market\\Basic VWAP";
     
-    // Номер буфера, который мы определили по вашему скриншоту
     int vwap_buffer_number = 0;
 
-    // ПРИМЕЧАНИЕ: Если у индикатора есть входные параметры (кроме цветов),
-    // их нужно будет добавить в вызов iCustom через запятую после indicator_path.
-    // Судя по названию "Basic VWAP", их скорее всего нет.
     int vwap_handle = iCustom(_Symbol, _Period, indicator_path);
 
     if(vwap_handle != INVALID_HANDLE)
