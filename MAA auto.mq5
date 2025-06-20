@@ -44,10 +44,6 @@ bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 bool IsTrendStrongADX();
 
-//+------------------------------------------------------------------+
-//| Expert initialization function                                   |
-//+------------------------------------------------------------------+
-// ...
 
 //+------------------------------------------------------------------+
 //| Стандартные функции советника                                    |
