@@ -2,8 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.22"
-string g_debug_log = "";
+#property version "4.20"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -25,7 +24,6 @@ input int    SR_ProximityPips      = 15;     // Зона приближения 
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
 input double MinATR_Value          = 0.00050;// Минимальное значение ATR для торговли
 
-#define DATA_OBJECT_NAME "MAA_DATA_HOLDER" // Уникальное имя нашего объекта-посредника
 
 //--- Прототипы функций ---
 void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob);
@@ -37,22 +35,32 @@ void CheckEMACross(int &long_score, int &short_score);
 void CheckSMACross(int &long_score, int &short_score);
 void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
+void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
-bool GetNearestSupportResistance(double &support_level, double &resistance_level);
-void CheckADXCrossover(int &long_score, int &short_score);
-void CheckVWAP(int &long_score, int &short_score);
 void CheckStochastic(int &long_score, int &short_score);
-
-bool GetNearestSupportResistance(double &support_level, double &resistance_level);
+void CheckVWAP(int &long_score, int &short_score);
+void CheckADXCrossover(int &long_score, int &short_score);
 bool IsVolatilitySufficient();
 bool IsTrendStrongADX();
+bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 
-// --- При удалении советника удаляем почтовый ящик ---
+//+------------------------------------------------------------------+
+//| Expert initialization function                                   |
+//+------------------------------------------------------------------+
+// ...
+
+//+------------------------------------------------------------------+
+//| Стандартные функции советника                                    |
+//+------------------------------------------------------------------+
+int OnInit() { return(INIT_SUCCEEDED); }
 void OnDeinit(const int reason)
 {
-    ObjectDelete(0, DATA_OBJECT_NAME);
+    ObjectDelete(0, "MegaAnalysis_Line1");
+    ObjectDelete(0, "MegaAnalysis_Line2");
+    ObjectDelete(0, "MegaAnalysis_Line3");
+    ChartRedraw();
 }
 
 //+------------------------------------------------------------------+
@@ -75,7 +83,22 @@ void OnTick()
     // --- Шаг 0: Инициализация ---
     int long_score = 0;
     int short_score = 0;
+
+    //+------------------------------------------------------------------+
+//| Главная рабочая функция OnTick                                   |
+//+------------------------------------------------------------------+
+void OnTick()
+{
+    static datetime prev_time = 0;
+    static int barsSinceLastTrade = 999;
+    datetime current_time = iTime(_Symbol, _Period, 0);
+    if(prev_time == current_time) return;
+    prev_time = current_time;
+    barsSinceLastTrade++;
+
     g_debug_log = "";
+    int long_score = 0, short_score = 0;
+    Print("--- Новый бар! Начало полного анализа ---");
 
     //--- ШАГ 1: СБОР ВСЕХ СИГНАЛОВ ---
     CheckD1Trend(long_score, short_score);
@@ -86,12 +109,13 @@ void OnTick()
     CheckSMACross(long_score, short_score);
     CheckWMATrend(long_score, short_score);
     CheckSmartBBands(long_score, short_score);
+    CheckBollingerSqueeze(long_score, short_score);
     CheckIchimoku(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
-    CheckADXCrossover(long_score, short_score);
     CheckStochastic(long_score, short_score);
     CheckVWAP(long_score, short_score);
+    CheckADXCrossover(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -112,13 +136,14 @@ void OnTick()
     else if(!IsTrendStrongADX()) { /* Сообщение выводится из самой функции IsTrendStrongADX */ }
     else if(!IsVolatilitySufficient()) { /* Сообщение выводится из самой функции IsVolatilitySufficient */ }
     else if(PositionSelect(_Symbol)) { Print("Торговое решение пропущено: позиция уже есть."); }
-    else
-    {
-        double support=0, resistance=0;
-        if(GetNearestSupportResistance(support, resistance))
+        else // Если все фильтры пройдены, приступаем к торговле
         {
-            if (long_probability >= long_score_threshold || short_probability >= short_score_threshold)
+            double support=0, resistance=0;
+            if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
             {
+                // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
+                if (long_probability >= long_score_threshold)
+                {
                     double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
                     if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
 
@@ -166,8 +191,9 @@ void OnTick()
                 }
             }
         }
+    }
+    else { UpdateDashboard(0,0,0,0); }
 }
-
 
 
 //+------------------------------------------------------------------+
@@ -176,56 +202,14 @@ void OnTick()
 //|                                                                  |
 //+------------------------------------------------------------------+
 
-// --- Новая функция: ЗАПИСЫВАЕТ данные в скрытый объект ---
-void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob)
-{
-
-    string final_text = "-- Анализ Сигналов --\n";
-    final_text += debug_log;
-    final_text += "--------------------------------\n";
-    final_text += StringFormat("ИТОГО Long/Short: %d / %d\n", long_score, short_score);
-    final_text += StringFormat("Вероятность Long: %.0f%%\n", long_prob);
-    final_text += StringFormat("Вероятность Short: %.0f%%", short_prob);
-
-    // Проверяем, существует ли наш "почтовый ящик"
-    if(ObjectFind(0, DATA_OBJECT_NAME) != 0)
-    {
-        // Если нет, создаем его. Делаем его невидимым.
-        ObjectCreate(0, DATA_OBJECT_NAME, OBJ_EDIT, 0, 0, 0);
-        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_COLOR, clrNONE);
-        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_BGCOLOR, clrNONE);
-        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_BORDER_COLOR, clrNONE);
-        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_SELECTABLE, false);
-        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_READONLY, true);
-    }
-
-    // Записываем наш отчет в текстовое свойство объекта
-    ObjectSetString(0, DATA_OBJECT_NAME, OBJPROP_TEXT, final_text);
-}
-
-// --- Функция для D1 Тренда с записью в лог ---
-void CheckD1Trend(int &long_score, int &short_score)
-{
+// --- Функция для D1 Тренда ---
+void CheckD1Trend(int &long_score, int &short_score){
     int ema_d1_handle = iMA(_Symbol, PERIOD_D1, 50, 0, MODE_EMA, PRICE_CLOSE);
-    if(ema_d1_handle != INVALID_HANDLE) 
-    {
-        double ema_d1_buffer[]; 
-        ArraySetAsSeries(ema_d1_buffer, true);
-        MqlRates rates_d1[]; 
-        ArraySetAsSeries(rates_d1, true);
-        
-        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) 
-        {
-            if(rates_d1[0].close > ema_d1_buffer[0]) 
-            {
-                long_score += 3;
-                g_debug_log += "D1 Trend: +3 Long\n"; // << ИЗМЕНЕНИЕ: Запись на "доску"
-            }
-            else 
-            {
-                short_score += 3;
-                g_debug_log += "D1 Trend: +3 Short\n"; // << ИЗМЕНЕНИЕ: Запись на "доску"
-            }
+    if(ema_d1_handle != INVALID_HANDLE) {
+        double ema_d1_buffer[]; ArraySetAsSeries(ema_d1_buffer, true);
+        MqlRates rates_d1[]; ArraySetAsSeries(rates_d1, true);
+        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) {
+            if(rates_d1[0].close > ema_d1_buffer[0]) long_score += 3; else short_score += 3;
         }
         IndicatorRelease(ema_d1_handle);
     }
@@ -1099,3 +1083,54 @@ bool IsTrendStrongADX()
     return false; // Тренд слабый, торговля запрещена
 }
 
+// --- Функция для обновления панели на графике ---
+void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob){
+    string label_name1 = "MegaAnalysis_Line1";
+    string label_name2 = "MegaAnalysis_Line2";
+    string label_name3 = "MegaAnalysis_Line3";
+
+    string text1 = StringFormat("Баллы Long/Short: %d / %d", long_score, short_score);
+    string text2 = StringFormat("Вероятность Long: %.0f%%", long_prob);
+    string text3 = StringFormat("Вероятность Short: %.0f%%", short_prob);
+
+    // --- Обновляем ЛЕЙБЛ 1 (Баллы) ---
+    ObjectDelete(0, label_name1);
+    if(ObjectCreate(0, label_name1, OBJ_LABEL, 0, 0, 0))
+    {
+        ObjectSetInteger(0, label_name1, OBJPROP_CORNER, CORNER_LEFT_LOWER);
+        ObjectSetInteger(0, label_name1, OBJPROP_XDISTANCE, 16);
+        ObjectSetInteger(0, label_name1, OBJPROP_YDISTANCE, 80);
+        ObjectSetString(0, label_name1, OBJPROP_FONT, "Arial Bold");
+        ObjectSetInteger(0, label_name1, OBJPROP_FONTSIZE, 10);
+        ObjectSetInteger(0, label_name1, OBJPROP_COLOR, clrSilver);
+        ObjectSetString(0, label_name1, OBJPROP_TEXT, text1);
+    }
+    
+    // --- Обновляем ЛЕЙБЛ 2 (Вероятность Long) ---
+    ObjectDelete(0, label_name2);
+    if(ObjectCreate(0, label_name2, OBJ_LABEL, 0, 0, 0))
+    {
+        ObjectSetInteger(0, label_name2, OBJPROP_CORNER, CORNER_LEFT_LOWER);
+        ObjectSetInteger(0, label_name2, OBJPROP_XDISTANCE, 16);
+        ObjectSetInteger(0, label_name2, OBJPROP_YDISTANCE, 60);
+        ObjectSetString(0, label_name2, OBJPROP_FONT, "Arial Bold");
+        ObjectSetInteger(0, label_name2, OBJPROP_FONTSIZE, 10);
+        ObjectSetInteger(0, label_name2, OBJPROP_COLOR, clrSilver);
+        ObjectSetString(0, label_name2, OBJPROP_TEXT, text2);
+    }
+
+    // --- Обновляем ЛЕЙБЛ 3 (Вероятность Short) ---
+    ObjectDelete(0, label_name3);
+    if(ObjectCreate(0, label_name3, OBJ_LABEL, 0, 0, 0))
+    {
+        ObjectSetInteger(0, label_name3, OBJPROP_CORNER, CORNER_LEFT_LOWER);
+        ObjectSetInteger(0, label_name3, OBJPROP_XDISTANCE, 16);
+        ObjectSetInteger(0, label_name3, OBJPROP_YDISTANCE, 40);
+        ObjectSetString(0, label_name3, OBJPROP_FONT, "Arial Bold");
+        ObjectSetInteger(0, label_name3, OBJPROP_FONTSIZE, 10);
+        ObjectSetInteger(0, label_name3, OBJPROP_COLOR, clrSilver);
+        ObjectSetString(0, label_name3, OBJPROP_TEXT, text3);
+    }
+    
+    ChartRedraw();
+}
