@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.39"
+#property version "4.40"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -32,6 +32,9 @@ input double MinATR_Value          = 0.00050;// Минимальное знач�
 input group "--- Фильтры Свечных Паттернов ---";
 input double PinBarMaxBodyRatio = 0.33; // Макс. размер тела относительно свечи (1/3)
 input double PinBarMinWickRatio = 0.60; // Мин. размер главной тени относительно свечи
+input double DojiMaxBodyRatio   = 0.15; // Макс. размер тела для Доджи (15% от свечи)
+input int    DojiClusterBars    = 5;    // На скольких свечах ищем скопление
+input int    DojiClusterMinCount= 3;    // Сколько минимум Доджи должно быть для скопления
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -54,6 +57,7 @@ void CheckVWAP(int &long_score, int &short_score);
 void CheckVWRSI(int &long_score, int &short_score);
 void CheckImbalance_Advanced(int &long_score, int &short_score);
 void CheckPinBarSignal(int &long_score, int &short_score);
+void CheckDojiClusterBreakout(int &long_score, int &short_score);
 double CalculateVWRSI(int period);
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -115,6 +119,7 @@ void OnTick()
     CheckVWRSI(long_score, short_score);
     CheckPinBarSignal(long_score, short_score);
     CheckImbalance_Advanced(long_score, short_score);
+    CheckDojiClusterBreakout(long_score, short_score);
 
    
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
@@ -1492,17 +1497,20 @@ void CheckPinBarSignal(int &long_score, int &short_score)
 }
 
 
+// --- Функция продвинутого анализа Имбаланса (Магнит + Тест) ---
 void CheckImbalance_Advanced(int &long_score, int &short_score)
 {
     MqlRates rates[];
-    if(CopyRates(_Symbol, _Period, 0, 50, rates) < 50) return;
+    int history_bars = 50;
+    if(CopyRates(_Symbol, _Period, 0, history_bars, rates) < history_bars) return;
     ArraySetAsSeries(rates, true);
 
     double current_price_low = rates[1].low;
     double current_price_high = rates[1].high;
 
     // Ищем в прошлое, пока не найдем первый же незаполненный имбаланс
-    for(int i = 3; i < 50; i++)
+    // Изменили "history_bars" на "history_bars - 1", чтобы i+1 не вышло за пределы
+    for(int i = 3; i < history_bars - 1; i++)
     {
         // --- Поиск БЫЧЬЕГО имбаланса (ниже текущей цены) ---
         double bullish_fvg_top = rates[i+1].high;
@@ -1510,18 +1518,16 @@ void CheckImbalance_Advanced(int &long_score, int &short_score)
         
         if(bullish_fvg_top < bullish_fvg_bottom)
         {
-            if(bullish_fvg_bottom < current_price_low) // Убеждаемся, что зона ниже и не заполнена
+            if(bullish_fvg_bottom < current_price_low)
             {
-                long_score += 2; // Очки за наличие "магнита"
-                if(EnableDebugLogs) Print("Imbalance: Найден бычий FVG-магнит ниже цены (+2 очка)");
-
-                // Дополнительная проверка на тест этой зоны
+                long_score += 2;
+                if(EnableDebugLogs) Print("Imbalance Magnet: Найден бычий FVG ниже цены (+2 очка)");
                 if(current_price_low <= bullish_fvg_bottom)
                 {
-                    long_score += 2; // Дополнительные очки за тест зоны
+                    long_score += 2;
                     if(EnableDebugLogs) Print("Imbalance: Цена тестирует бычий FVG! (еще +2 очка)");
                 }
-                break; // Нашли ближайший, выходим из цикла
+                break; 
             }
         }
 
@@ -1531,19 +1537,71 @@ void CheckImbalance_Advanced(int &long_score, int &short_score)
         
         if(bearish_fvg_bottom > bearish_fvg_top)
         {
-            if(bearish_fvg_top > current_price_high) // Убеждаемся, что зона выше и не заполнена
+            if(bearish_fvg_top > current_price_high)
             {
-                short_score += 2; // Очки за наличие "магнита"
+                short_score += 2;
                 if(EnableDebugLogs) Print("Imbalance Magnet: Найден медвежий FVG выше цены (+2 очка)");
-
-                // Дополнительная проверка на тест этой зоны
                 if(current_price_high >= bearish_fvg_top)
                 {
-                    short_score += 2; // Дополнительные очки за тест зоны
+                    short_score += 2;
                     if(EnableDebugLogs) Print("Imbalance: Цена тестирует медвежий FVG! (еще +2 очка)");
                 }
-                break; // Нашли ближайший, выходим из цикла
+                break;
             }
+        }
+    }
+}
+
+// --- Функция анализа прорыва из скопления Доджи (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+void CheckDojiClusterBreakout(int &long_score, int &short_score)
+{
+    // Запрашиваем на 1 бар больше, чем глубина поиска, для проверки пробоя
+    int bars_to_check_for_breakout = 1;
+    int bars_to_copy = DojiClusterBars + bars_to_check_for_breakout + 1; // +1 для запаса
+    
+    MqlRates rates[];
+    if(CopyRates(_Symbol, _Period, 0, bars_to_copy, rates) < bars_to_copy) return;
+    ArraySetAsSeries(rates, true);
+
+    // --- 1. Ищем скопление Доджи на барах, ПРЕДШЕСТВУЮЩИХ последнему закрытому ---
+    int doji_count = 0;
+    double cluster_high = 0;
+    double cluster_low = 999999;
+
+    for(int i = 1 + bars_to_check_for_breakout; i <= DojiClusterBars + bars_to_check_for_breakout; i++)
+    {
+        double range = rates[i].high - rates[i].low;
+        double body = MathAbs(rates[i].open - rates[i].close);
+
+        if(range > 0 && body <= range * DojiMaxBodyRatio)
+        {
+            doji_count++;
+        }
+        
+        if(rates[i].high > cluster_high) cluster_high = rates[i].high;
+        if(rates[i].low < cluster_low) cluster_low = rates[i].low;
+    }
+
+    // --- 2. Если скопление найдено, проверяем ПОСЛЕДНЮЮ ЗАКРЫТУЮ СВЕЧУ (индекс 1) на пробой ---
+    if(doji_count >= DojiClusterMinCount)
+    {
+        // Используем PrintFormat для правильного отображения чисел
+        if(EnableDebugLogs) PrintFormat("Doji Cluster: Обнаружено скопление Доджи в диапазоне [%.5f - %.5f]", cluster_low, cluster_high);
+        
+        double breakout_candle_close = rates[1].close;
+
+        // Проверяем пробой вверх
+        if(breakout_candle_close > cluster_high)
+        {
+            long_score += 4;
+            if(EnableDebugLogs) Print("Doji Cluster: Пробой вверх из скопления! (+4 очка)");
+        }
+        
+        // Проверяем пробой вниз
+        if(breakout_candle_close < cluster_low)
+        {
+            short_score += 4;
+            if(EnableDebugLogs) Print("Doji Cluster: Пробой вниз из скопления! (+4 очка)");
         }
     }
 }
