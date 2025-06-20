@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.20"
+#property version "4.21"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -26,7 +26,7 @@ input double MinATR_Value          = 0.00050;// Минимальное знач�
 
 
 //--- Прототипы функций ---
-void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob);
+void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
 void CheckD1Trend(int &long_score, int &short_score);
 void CheckDeepRSI(int &long_score, int &short_score);
 void CheckFractalDivergence(int &long_score, int &short_score);
@@ -35,16 +35,14 @@ void CheckEMACross(int &long_score, int &short_score);
 void CheckSMACross(int &long_score, int &short_score);
 void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
-void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
-void CheckSupportResistanceSignal(int &long_score, int &short_score);
-void CheckStochastic(int &long_score, int &short_score);
-void CheckVWAP(int &long_score, int &short_score);
 void CheckADXCrossover(int &long_score, int &short_score);
+void CheckSupportResistanceSignal(int &long_score, int &short_score);
+
 bool IsVolatilitySufficient();
-bool IsTrendStrongADX();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
+bool IsTrendStrongADX();
 
 //+------------------------------------------------------------------+
 //| Expert initialization function                                   |
@@ -84,22 +82,6 @@ void OnTick()
     int long_score = 0;
     int short_score = 0;
 
-    //+------------------------------------------------------------------+
-//| Главная рабочая функция OnTick                                   |
-//+------------------------------------------------------------------+
-void OnTick()
-{
-    static datetime prev_time = 0;
-    static int barsSinceLastTrade = 999;
-    datetime current_time = iTime(_Symbol, _Period, 0);
-    if(prev_time == current_time) return;
-    prev_time = current_time;
-    barsSinceLastTrade++;
-
-    g_debug_log = "";
-    int long_score = 0, short_score = 0;
-    Print("--- Новый бар! Начало полного анализа ---");
-
     //--- ШАГ 1: СБОР ВСЕХ СИГНАЛОВ ---
     CheckD1Trend(long_score, short_score);
     CheckDeepRSI(long_score, short_score);
@@ -109,33 +91,36 @@ void OnTick()
     CheckSMACross(long_score, short_score);
     CheckWMATrend(long_score, short_score);
     CheckSmartBBands(long_score, short_score);
-    CheckBollingerSqueeze(long_score, short_score);
     CheckIchimoku(long_score, short_score);
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
-    CheckStochastic(long_score, short_score);
-    CheckVWAP(long_score, short_score);
     CheckADXCrossover(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
-    double long_probability = 0, short_probability = 0;
     if(total_score > 0)
     {
-        long_probability = (double)long_score / total_score * 100;
-        short_probability = (double)short_score / total_score * 100;
-    }
-    
-    UpdateDashboard(g_debug_log, long_score, short_score, long_probability, short_probability);
-    
-    string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
-    Print(print_report);
+        double long_probability = (double)long_score / total_score * 100;
+        double short_probability = (double)short_score / total_score * 100;
+        UpdateDashboard(long_score, short_score, long_probability, short_probability);
+        
+        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
+        Print(print_report);
 
-    if(barsSinceLastTrade < MinBarsBetweenTrades) { Print("Торговля пропущена: cooldown."); }
-    else if(!IsTrendStrongADX()) { /* Сообщение выводится из самой функции IsTrendStrongADX */ }
-    else if(!IsVolatilitySufficient()) { /* Сообщение выводится из самой функции IsVolatilitySufficient */ }
-    else if(PositionSelect(_Symbol)) { Print("Торговое решение пропущено: позиция уже есть."); }
+        // --- Проверяем все фильтры перед торговлей ---
+        if(barsSinceLastTrade < MinBarsBetweenTrades)
+        {
+            Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
+        }
+        else if(!IsVolatilitySufficient())
+        {
+            Print("Торговля пропущена: низкая волатильность (ATR).");
+        }
+        else if(PositionSelect(_Symbol) == true)
+        {
+            Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+        }
         else // Если все фильтры пройдены, приступаем к торговле
         {
             double support=0, resistance=0;
@@ -203,13 +188,25 @@ void OnTick()
 //+------------------------------------------------------------------+
 
 // --- Функция для D1 Тренда ---
-void CheckD1Trend(int &long_score, int &short_score){
+void CheckD1Trend(int &long_score, int &short_score)
+{
     int ema_d1_handle = iMA(_Symbol, PERIOD_D1, 50, 0, MODE_EMA, PRICE_CLOSE);
-    if(ema_d1_handle != INVALID_HANDLE) {
+    if(ema_d1_handle != INVALID_HANDLE) 
+    {
         double ema_d1_buffer[]; ArraySetAsSeries(ema_d1_buffer, true);
         MqlRates rates_d1[]; ArraySetAsSeries(rates_d1, true);
-        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) {
-            if(rates_d1[0].close > ema_d1_buffer[0]) long_score += 3; else short_score += 3;
+        if(CopyRates(_Symbol, PERIOD_D1, 1, 1, rates_d1) > 0 && CopyBuffer(ema_d1_handle, 0, 1, 1, ema_d1_buffer) > 0) 
+        {
+            if(rates_d1[0].close > ema_d1_buffer[0]) 
+            {
+                long_score += 3;
+                Print("D1 Trend - Long (+3 очка)");
+            }
+            else 
+            {
+                short_score += 3;
+                Print("D1 Trend - Short (+3 очка)");
+            }
         }
         IndicatorRelease(ema_d1_handle);
     }
@@ -224,16 +221,35 @@ void CheckDeepRSI(int &long_score, int &short_score)
         int data_to_copy = 3;
         double rsi_buffer[];
         ArraySetAsSeries(rsi_buffer, true);
+        
         if(CopyBuffer(rsi_handle, 0, 0, data_to_copy, rsi_buffer) > 0)
         {
             double rsi_current = rsi_buffer[1];
             double rsi_prev = rsi_buffer[2];
 
-            if(rsi_prev < 30 && rsi_current >= 30) { long_score += 2; Print("RSI: выход из зоны перепроданности. Очки Long +2"); }
-            if(rsi_prev > 70 && rsi_current <= 70) { short_score += 2; Print("RSI: выход из зоны перекупленности. Очки Short +2"); }
+            // --- 1. Анализ "Возврата из зоны" (+2 очка) ---
+            if(rsi_prev < 30 && rsi_current >= 30) 
+            {
+                long_score += 2; 
+                Print("RSI Exit - Long (+2 очка)"); // << ИЗМЕНЕНИЕ
+            }
+            if(rsi_prev > 70 && rsi_current <= 70) 
+            {
+                short_score += 2; 
+                Print("RSI Exit - Short (+2 очка)"); // << ИЗМЕНЕНИЕ
+            }
             
-            if(rsi_current > 50) long_score++;
-            if(rsi_current < 50) short_score++;
+            // --- 2. Анализ "Зоны импульса" (+1 очко) ---
+            if(rsi_current > 50) 
+            {
+                long_score++;
+                Print("RSI Zone - Long (+1 очко)"); // << ИЗМЕНЕНИЕ
+            }
+            if(rsi_current < 50) 
+            {
+                short_score++;
+                Print("RSI Zone - Short (+1 очко)"); // << ИЗМЕНЕНИЕ
+            }
         }
         IndicatorRelease(rsi_handle);
     }
@@ -286,7 +302,7 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         if(price_peak1 > price_peak2 && rsi_peak1 < rsi_peak2)
         {
             short_score += 5;
-            Print("!!! ОБНАРУЖЕНА МЕДВЕЖЬЯ ДИВЕРГЕНЦИЯ ПО ФРАКТАЛАМ !!! Очки Short +5");
+            Print("Медвежья дивергенция - Short (+5 очко)"); 
         }
     }
 
@@ -310,81 +326,79 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         if(price_trough1 < price_trough2 && rsi_trough1 > rsi_trough2)
         {
             long_score += 5;
-            Print("!!! ОБНАРУЖЕНА БЫЧЬЯ ДИВЕРГЕНЦИЯ ПО ФРАКТАЛАМ !!! Очки Long +5");
+            Print("Бычья дивергенция - Long (+5 очко)");
         }
     }
     IndicatorRelease(rsi_handle);
     IndicatorRelease(fractals_handle);
 }
 
-// --- Функция для углубленного MACD ---
-void CheckDeepMACD(int &long_score, int &short_score){
+
+// --- Функция углубленного анализа MACD ---
+void CheckDeepMACD(int &long_score, int &short_score)
+{
     int macd_handle = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);
-   if(macd_handle != INVALID_HANDLE)
-   {
-       // Готовим буферы для главной линии, сигнальной и гистограммы
-       double macd_main_buffer[], macd_signal_buffer[], macd_histogram_buffer[];
-       
-       // Нам нужны данные с нескольких последних свечей для анализа динамики
-       int data_to_copy = 3; 
-       ArraySetAsSeries(macd_main_buffer, true);
-       ArraySetAsSeries(macd_signal_buffer, true);
-       ArraySetAsSeries(macd_histogram_buffer, true);
-       
-       // Копируем данные из всех трех буферов индикатора
-       if(CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer) > 0 &&   // Буфер 0: Главная линия
-          CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0 &&   // Буфер 1: Сигнальная линия
-          CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer) > 0) // Буфер 2: Гистограмма
-       {
-           // Извлекаем значения для текущей закрытой свечи (индекс 1) и предыдущей (индекс 2)
-           double main_current = macd_main_buffer[1];
-           double main_prev = macd_main_buffer[2];
-           double signal_current = macd_signal_buffer[1];
-           double signal_prev = macd_signal_buffer[2];
-           double hist_current = macd_histogram_buffer[1];
-           double hist_prev = macd_histogram_buffer[2];
-   
-           // --- 1. Анализ ПЕРЕСЕЧЕНИЯ (+3 очка) ---
-           // Бычье пересечение: раньше главная была НИЖЕ, а теперь стала ВЫШЕ
-           if(main_prev <= signal_prev && main_current > signal_current)
-           {
-               long_score += 3;
-               Print("MACD(",EnumToString(_Period),"): Обнаружено бычье пересечение! Очки Long +3");
-           }
-           // Медвежье пересечение: раньше главная была ВЫШЕ, а теперь стала НИЖЕ
-           if(main_prev >= signal_prev && main_current < signal_current)
-           {
-               short_score += 3;
-               Print("MACD(",EnumToString(_Period),"): Обнаружено медвежье пересечение! Очки Short +3");
-           }
-   
-           // --- 2. Анализ СОСТОЯНИЯ (+1 очко) ---
-           // Просто проверяем, кто выше сейчас
-           if(main_current > signal_current) long_score++;
-           if(main_current < signal_current) short_score++;
-   
-           // --- 3. Анализ ИМПУЛЬСА ГИСТОГРАММЫ (+1 очко) ---
-           // Если гистограмма растет (увеличивается или уменьшает свое отрицательное значение)
-           if(hist_current > hist_prev)
-           {
-               long_score++;
-               Print("MACD(",EnumToString(_Period),"): Импульс гистограммы бычий. Очки Long +1");
-           }
-           // Если гистограмма падает (уменьшается или увеличивает свое положительное значение)
-           if(hist_current < hist_prev)
-           {
-               short_score++;
-               Print("MACD(",EnumToString(_Period),"): Импульс гистограммы медвежий. Очки Short +1");
-           }
-           
-           Print("MACD(",EnumToString(_Period),"): анализ завершен. Итоговые очки Long/Short: ",long_score,"/",short_score);
-       }
-       IndicatorRelease(macd_handle);
-   }
-   else
-   {
-       Print("Ошибка: не удалось создать хэндл для индикатора MACD.");
-   }
+    if(macd_handle != INVALID_HANDLE)
+    {
+        double macd_main_buffer[], macd_signal_buffer[], macd_histogram_buffer[];
+        int data_to_copy = 3; 
+        ArraySetAsSeries(macd_main_buffer, true);
+        ArraySetAsSeries(macd_signal_buffer, true);
+        ArraySetAsSeries(macd_histogram_buffer, true);
+        
+        if(CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer) > 0 &&
+           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0 &&
+           CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer) > 0)
+        {
+            double main_current = macd_main_buffer[1];
+            double main_prev = macd_main_buffer[2];
+            double signal_current = macd_signal_buffer[1]; 
+            double signal_prev = macd_signal_buffer[2];   
+            double hist_current = macd_histogram_buffer[1];
+            double hist_prev = macd_histogram_buffer[2];
+
+            // --- 1. Анализ ПЕРЕСЕЧЕНИЯ (+3 очка) ---
+            if(main_prev <= signal_prev && main_current > signal_current)
+            {
+                long_score += 3;
+                Print("MACD Crossover: Long (+3 очка)");
+            }
+            if(main_prev >= signal_prev && main_current < signal_current)
+            {
+                short_score += 3;
+                Print("MACD Crossover: Short (+3 очка)");
+            }
+    
+            // --- 2. Анализ СОСТОЯНИЯ (+1 очко) ---
+            if(main_current > signal_current)
+            {
+                long_score++;
+                Print("MACD State: Long (+1 очко)");
+            }
+            if(main_current < signal_current)
+            {
+                short_score++;
+                Print("MACD State: Short (+1 очко)");
+            }
+    
+            // --- 3. Анализ ИМПУЛЬСА ГИСТОГРАММЫ (+1 очко) ---
+            if(hist_current > hist_prev)
+            {
+                long_score++;
+                Print("MACD Histogram: Long (+1 очко)");
+            }
+            if(hist_current < hist_prev)
+            {
+                short_score++;
+                Print("MACD Histogram: Short (+1 очко)");
+            }
+        }
+        IndicatorRelease(macd_handle);
+    }
+    else
+    {
+        Print("Ошибка: не удалось создать хэндл для индикатора MACD.");
+    }
 }
 
 // --- Функция для пересечения EMA(12,26) ---
@@ -698,7 +712,7 @@ void CheckStochastic(int &long_score, int &short_score)
     }
 }
 
-// --- Функция углубленного анализа RSI ---
+// --- Функция поиска всплесков объема ---
 void CheckVolumeSpikes(int &long_score, int &short_score)
 {
     // --- Готовим массивы для цен и объемов ---
