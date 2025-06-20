@@ -1,8 +1,8 @@
-﻿//+------------------------------------------------------------------+
+//+------------------------------------------------------------------+
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.37"
+#property version "4.39"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -13,7 +13,8 @@ input int    MinBarsBetweenTrades = 4;       // Минимальное кол-в
 input int    MinProfitPips = 20; // Минимальная дистанция до TP в пипсах, чтобы сделка имела смысл
 input int    TrailingStopPips      = 50;     // Дистанция трейлинг-стопа в пипсах (0 = выключен)
 input double BreakoutTP_ATR_Multiplier = 3.0; // Множитель ATR для тейк-профита на пробое
-input bool EnableDebugLogs = false; // Включить подробное логирование? (сильно замедляет тесты)
+input bool   EnableDebugLogs = false; // Включить подробное логирование? (сильно замедляет тесты)
+input bool   AllowMultipleTrades = false; // Разрешить новую серию ордеров?
 
 //--- Входные параметры для сигналов
 input group "--- Пороги Сигналов ---"
@@ -27,6 +28,10 @@ input int    SR_ProximityPips      = 15;     // Зона приближения 
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
 input double MinATR_Value          = 0.00050;// Минимальное значение ATR для торговли
 
+//--- Входные параметры для свечных паттернов
+input group "--- Фильтры Свечных Паттернов ---";
+input double PinBarMaxBodyRatio = 0.33; // Макс. размер тела относительно свечи (1/3)
+input double PinBarMinWickRatio = 0.60; // Мин. размер главной тени относительно свечи
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -47,6 +52,8 @@ void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckFibonacciRetracement(int &long_score, int &short_score);
 void CheckVWAP(int &long_score, int &short_score);
 void CheckVWRSI(int &long_score, int &short_score);
+void CheckImbalance_Advanced(int &long_score, int &short_score);
+void CheckPinBarSignal(int &long_score, int &short_score);
 double CalculateVWRSI(int period);
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -64,7 +71,6 @@ void OnDeinit(const int reason)
     ObjectDelete(0, "MegaAnalysis_Line3");
     ObjectDelete(0, "SR_Support_Line");
     ObjectDelete(0, "SR_Resistance_Line");
-    ChartRedraw();
     ChartRedraw();
 }
 
@@ -107,7 +113,10 @@ void OnTick()
     CheckFibonacciRetracement(long_score, short_score);
     CheckVWAP(long_score, short_score);
     CheckVWRSI(long_score, short_score);
+    CheckPinBarSignal(long_score, short_score);
+    CheckImbalance_Advanced(long_score, short_score);
 
+   
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     if(EnableDebugLogs) Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
@@ -138,7 +147,7 @@ void OnTick()
         {
             // Сообщение выводится из самой функции IsVolatilitySufficient
         }
-        else if(PositionSelect(_Symbol))
+        else if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
         {
             if(EnableDebugLogs) Print("Торговое решение пропущено: позиция уже есть.");
             CheckTrailingStop(); // Если позиция есть, проверяем трейлинг-стоп
@@ -241,13 +250,13 @@ void CheckD1Trend(int &long_score, int &short_score)
         {
             if(rates_d1[0].close > ema_d1_buffer[0]) 
             {
-                long_score += 10;
-                if(EnableDebugLogs) Print("D1 Trend - Long (+10 очка)");
+                long_score += 3;
+                if(EnableDebugLogs) Print("D1 Trend - Long (+3 очка)");
             }
             else 
             {
-                short_score += 10;
-                if(EnableDebugLogs) Print("D1 Trend - Short (+10 очка)");
+                short_score += 3;
+                if(EnableDebugLogs) Print("D1 Trend - Short (+3 очка)");
             }
         }
         IndicatorRelease(ema_d1_handle);
@@ -1428,6 +1437,114 @@ void CheckVWRSI(int &long_score, int &short_score)
     {
         short_score += 2;
         if(EnableDebugLogs) Print("VW-RSI: В зоне перекупленности (>70) (+2 очка)");
+    }
+}
+
+// --- Функция анализа свечного паттерна "Пин-бар" у уровней S/R ---
+void CheckPinBarSignal(int &long_score, int &short_score)
+{
+    // Получаем данные последней закрытой свечи
+    MqlRates rates[];
+    if(CopyRates(_Symbol, _Period, 1, 1, rates) < 1) return;
+
+    double candle_open = rates[0].open;
+    double candle_high = rates[0].high;
+    double candle_low = rates[0].low;
+    double candle_close = rates[0].close;
+
+    // Рассчитываем размеры свечи
+    double total_range = candle_high - candle_low;
+    double body_size = MathAbs(candle_close - candle_open);
+    
+    // Избегаем деления на ноль на дожи-свечах
+    if(total_range == 0) return;
+
+    double upper_wick = candle_high - MathMax(candle_open, candle_close);
+    double lower_wick = MathMin(candle_open, candle_close) - candle_low;
+
+    // --- Проверяем, является ли свеча Пин-баром ---
+    bool is_bullish_pinbar = (body_size <= total_range * PinBarMaxBodyRatio) && (lower_wick >= total_range * PinBarMinWickRatio);
+    bool is_bearish_pinbar = (body_size <= total_range * PinBarMaxBodyRatio) && (upper_wick >= total_range * PinBarMinWickRatio);
+    
+    // Если это один из видов пин-бара, то ищем подтверждение от уровней
+    if(is_bullish_pinbar || is_bearish_pinbar)
+    {
+        double support=0, resistance=0;
+        if(GetNearestSupportResistance(support, resistance))
+        {
+            double proximity_zone = SR_ProximityPips * 10 * _Point;
+
+            // Если это бычий пин-бар и он находится у поддержки
+            if(is_bullish_pinbar && MathAbs(candle_low - support) <= proximity_zone)
+            {
+                long_score += 4;
+                if(EnableDebugLogs) Print("Candle Pattern: Обнаружен бычий Пин-бар у поддержки! (+4 очка)");
+            }
+            
+            // Если это медвежий пин-бар и он находится у сопротивления
+            if(is_bearish_pinbar && MathAbs(candle_high - resistance) <= proximity_zone)
+            {
+                short_score += 4;
+                if(EnableDebugLogs) Print("Candle Pattern: Обнаружен медвежий Пин-бар у сопротивления! (+4 очка)");
+            }
+        }
+    }
+}
+
+
+void CheckImbalance_Advanced(int &long_score, int &short_score)
+{
+    MqlRates rates[];
+    if(CopyRates(_Symbol, _Period, 0, 50, rates) < 50) return;
+    ArraySetAsSeries(rates, true);
+
+    double current_price_low = rates[1].low;
+    double current_price_high = rates[1].high;
+
+    // Ищем в прошлое, пока не найдем первый же незаполненный имбаланс
+    for(int i = 3; i < 50; i++)
+    {
+        // --- Поиск БЫЧЬЕГО имбаланса (ниже текущей цены) ---
+        double bullish_fvg_top = rates[i+1].high;
+        double bullish_fvg_bottom = rates[i-1].low;
+        
+        if(bullish_fvg_top < bullish_fvg_bottom)
+        {
+            if(bullish_fvg_bottom < current_price_low) // Убеждаемся, что зона ниже и не заполнена
+            {
+                long_score += 2; // Очки за наличие "магнита"
+                if(EnableDebugLogs) Print("Imbalance: Найден бычий FVG-магнит ниже цены (+2 очка)");
+
+                // Дополнительная проверка на тест этой зоны
+                if(current_price_low <= bullish_fvg_bottom)
+                {
+                    long_score += 2; // Дополнительные очки за тест зоны
+                    if(EnableDebugLogs) Print("Imbalance: Цена тестирует бычий FVG! (еще +2 очка)");
+                }
+                break; // Нашли ближайший, выходим из цикла
+            }
+        }
+
+        // --- Поиск МЕДВЕЖЬЕГО имбаланса (выше текущей цены) ---
+        double bearish_fvg_bottom = rates[i+1].low;
+        double bearish_fvg_top = rates[i-1].high;
+        
+        if(bearish_fvg_bottom > bearish_fvg_top)
+        {
+            if(bearish_fvg_top > current_price_high) // Убеждаемся, что зона выше и не заполнена
+            {
+                short_score += 2; // Очки за наличие "магнита"
+                if(EnableDebugLogs) Print("Imbalance Magnet: Найден медвежий FVG выше цены (+2 очка)");
+
+                // Дополнительная проверка на тест этой зоны
+                if(current_price_high >= bearish_fvg_top)
+                {
+                    short_score += 2; // Дополнительные очки за тест зоны
+                    if(EnableDebugLogs) Print("Imbalance: Цена тестирует медвежий FVG! (еще +2 очка)");
+                }
+                break; // Нашли ближайший, выходим из цикла
+            }
+        }
     }
 }
 
