@@ -108,9 +108,10 @@ void OnTick()
     string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
     Print(print_report);
 
-    if(barsSinceLastTrade < MinBarsBetweenTrades){ Print("Торговля пропущена: cooldown."); }
-    else if(!IsVolatilitySufficient()){ Print("Торговля пропущена: низкая волатильность (ATR)."); }
-    else if(PositionSelect(_Symbol)){ Print("Торговое решение пропущено: позиция уже есть."); }
+    if(barsSinceLastTrade < MinBarsBetweenTrades) { Print("Торговля пропущена: cooldown."); }
+    else if(!IsTrendStrongADX()) { /* Сообщение выводится из самой функции IsTrendStrongADX */ }
+    else if(!IsVolatilitySufficient()) { /* Сообщение выводится из самой функции IsVolatilitySufficient */ }
+    else if(PositionSelect(_Symbol)) { Print("Торговое решение пропущено: позиция уже есть."); }
     else
     {
         double support=0, resistance=0;
