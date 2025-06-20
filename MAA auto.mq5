@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.18"
+#property version "4.17"
 string g_debug_log = "";
 
 //--- Входные параметры для торговли
@@ -49,6 +49,13 @@ bool IsTrendStrongADX();
 //| Стандартные функции советника                                    |
 //+------------------------------------------------------------------+
 int OnInit() { return(INIT_SUCCEEDED); }
+void OnDeinit(const int reason)
+{
+    ObjectDelete(0, "MegaAnalysis_Line1");
+    ObjectDelete(0, "MegaAnalysis_Line2");
+    ObjectDelete(0, "MegaAnalysis_Line3");
+    ChartRedraw();
+}
 
 //+------------------------------------------------------------------+
 //| Главная рабочая функция OnTick                                   |
