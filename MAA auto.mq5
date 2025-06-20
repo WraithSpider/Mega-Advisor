@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.17"
+#property version "4.19"
 string g_debug_log = "";
 
 //--- Входные параметры для торговли
@@ -38,23 +38,21 @@ void CheckWMATrend(int &long_score, int &short_score);
 void CheckSmartBBands(int &long_score, int &short_score);
 void CheckIchimoku(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
-bool IsVolatilitySufficient();
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 void CheckADXCrossover(int &long_score, int &short_score);
+void CheckVWAP(int &long_score, int &short_score);
+void CheckStochastic(int &long_score, int &short_score);
+
+bool GetNearestSupportResistance(double &support_level, double &resistance_level);
+bool IsVolatilitySufficient();
 bool IsTrendStrongADX();
 
-
-//+------------------------------------------------------------------+
-//| Стандартные функции советника                                    |
-//+------------------------------------------------------------------+
+//--- Стандартные функции советника ---
 int OnInit() { return(INIT_SUCCEEDED); }
 void OnDeinit(const int reason)
 {
-    ObjectDelete(0, "MegaAnalysis_Line1");
-    ObjectDelete(0, "MegaAnalysis_Line2");
-    ObjectDelete(0, "MegaAnalysis_Line3");
-    ChartRedraw();
+    Comment(""); // Очищаем комментарий при удалении советника
 }
 
 //+------------------------------------------------------------------+
@@ -92,40 +90,34 @@ void OnTick()
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
     CheckADXCrossover(long_score, short_score);
+    CheckStochastic(long_score, short_score);
+    CheckVWAP(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
+    double long_probability = 0, short_probability = 0;
     if(total_score > 0)
     {
-        double long_probability = (double)long_score / total_score * 100;
-        double short_probability = (double)short_score / total_score * 100;
-        UpdateDashboard(long_score, short_score, long_probability, short_probability, g_debug_log);
-        
-        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
-        Print(print_report);
+        long_probability = (double)long_score / total_score * 100;
+        short_probability = (double)short_score / total_score * 100;
+    }
+    
+    UpdateDashboard(g_debug_log, long_score, short_score, long_probability, short_probability);
+    
+    string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
+    Print(print_report);
 
-        // --- Проверяем все фильтры перед торговлей ---
-        if(barsSinceLastTrade < MinBarsBetweenTrades)
+    if(barsSinceLastTrade < MinBarsBetweenTrades){ Print("Торговля пропущена: cooldown."); }
+    else if(!IsVolatilitySufficient()){ Print("Торговля пропущена: низкая волатильность (ATR)."); }
+    else if(PositionSelect(_Symbol)){ Print("Торговое решение пропущено: позиция уже есть."); }
+    else
+    {
+        double support=0, resistance=0;
+        if(GetNearestSupportResistance(support, resistance))
         {
-            Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
-        }
-        else if(!IsVolatilitySufficient())
-        {
-            Print("Торговля пропущена: низкая волатильность (ATR).");
-        }
-        else if(PositionSelect(_Symbol) == true)
-        {
-            Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-        }
-        else // Если все фильтры пройдены, приступаем к торговле
-        {
-            double support=0, resistance=0;
-            if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
+            if (long_probability >= long_score_threshold || short_probability >= short_score_threshold)
             {
-                // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
-                if (long_probability >= long_score_threshold)
-                {
                     double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
                     if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
 
@@ -173,9 +165,8 @@ void OnTick()
                 }
             }
         }
-    }
-    else { UpdateDashboard(0,0,0,0,0); }
 }
+
 
 
 //+------------------------------------------------------------------+
@@ -183,6 +174,18 @@ void OnTick()
 //|         ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ДЛЯ АНАЛИЗА                      |
 //|                                                                  |
 //+------------------------------------------------------------------+
+
+// --- Функция обновления панели на графике ---
+void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob)
+{
+    string final_text = "-- Анализ Сигналов --\n";
+    final_text += debug_log;
+    final_text += "--------------------------------\n";
+    final_text += StringFormat("ИТОГО Long/Short: %d / %d\n", long_score, short_score);
+    final_text += StringFormat("Вероятность Long: %.0f%%\n", long_prob);
+    final_text += StringFormat("Вероятность Short: %.0f%%", short_prob);
+    Comment(final_text);
+}
 
 // --- Функция для D1 Тренда с записью в лог ---
 void CheckD1Trend(int &long_score, int &short_score)
@@ -1080,20 +1083,3 @@ bool IsTrendStrongADX()
     return false; // Тренд слабый, торговля запрещена
 }
 
-//+------------------------------------------------------------------+
-//| Вспомогательная функция для обновления инфо-панели на графике    |
-//| (Новая, простая версия с использованием Comment)                 |
-//+------------------------------------------------------------------+
-void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob)
-{
-    // --- Формируем финальный текст для вывода ---
-    string final_text = "--- Анализ Сигналов ---\n";
-    final_text += debug_log; // Добавляем детальные логи от функций
-    final_text += "--------------------------------\n";
-    final_text += StringFormat("ИТОГО Long/Short: %d / %d\n", long_score, short_score);
-    final_text += StringFormat("Вероятность Long: %.0f%%\n", long_prob);
-    final_text += StringFormat("Вероятность Short: %.0f%%", short_prob);
-
-    // --- Выводим весь текст на график одной командой ---
-    Comment(final_text);
-}
