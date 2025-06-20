@@ -39,6 +39,7 @@ void CheckIchimoku(int &long_score, int &short_score);
 void CheckVolumeSpikes(int &long_score, int &short_score);
 void CheckADXCrossover(int &long_score, int &short_score);
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
+void CheckStochastic(int &long_score, int &short_score);
 
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -91,6 +92,7 @@ void OnTick()
     CheckVolumeSpikes(long_score, short_score);
     CheckSupportResistanceSignal(long_score, short_score);
     CheckADXCrossover(long_score, short_score);
+    CheckStochastic(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -756,61 +758,51 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
        return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
    }
 
-// --- Функция анализа Стохастического Осциллятора ---
+// --- Функция анализа Стохастического Осциллятора (ДИАГНОСТИЧЕСКАЯ ВЕРСИЯ) ---
 void CheckStochastic(int &long_score, int &short_score)
 {
-    // Стандартные параметры стохастика: %K=5, %D=3, Замедление=3
     int stochastic_handle = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);
 
     if(stochastic_handle != INVALID_HANDLE)
     {
-        // Готовим буферы для главной и сигнальной линий
         double main_line_buffer[], signal_line_buffer[];
         int data_to_copy = 3; 
-        
         ArraySetAsSeries(main_line_buffer, true);
         ArraySetAsSeries(signal_line_buffer, true);
         
-        // Копируем данные из буферов
-        if(CopyBuffer(stochastic_handle, 0, 0, data_to_copy, main_line_buffer) > 0 &&   // Буфер 0: Главная линия (%K)
-           CopyBuffer(stochastic_handle, 1, 0, data_to_copy, signal_line_buffer) > 0)    // Буфер 1: Сигнальная линия (%D)
+        if(CopyBuffer(stochastic_handle, 0, 0, data_to_copy, main_line_buffer) > 0 &&
+           CopyBuffer(stochastic_handle, 1, 0, data_to_copy, signal_line_buffer) > 0)
         {
-            // Извлекаем значения для текущей закрытой свечи (индекс 1) и предыдущей (индекс 2)
             double main_current = main_line_buffer[1];
             double main_prev = main_line_buffer[2];
             double signal_current = signal_line_buffer[1];
             double signal_prev = signal_line_buffer[2];
 
-            // --- ПРОВЕРКА СИГНАЛОВ ---
-
-            // Бычье пересечение (быстрая выше медленной)
+            // --- ПРОВЕРКА СИГНАЛОВ ПЕРЕСЕЧЕНИЯ ---
             if(main_prev <= signal_prev && main_current > signal_current)
             {
-                // Сигнал №2: Обычное пересечение
                 long_score++;
-                Print("Stochastic(",EnumToString(_Period),"): Обнаружено обычное бычье пересечение. Очки Long +1");
-
-                // Сигнал №1: Пересечение в зоне перепроданности
+                Print("Stochastic Signal: Обнаружено бычье пересечение (+1 очко)");
                 if(main_current < 20 && signal_current < 20)
                 {
                     long_score += 3;
-                    Print("Stochastic(",EnumToString(_Period),"): Пересечение в зоне перепроданности! Очки Long +3");
+                    Print("Stochastic Signal: Пересечение в зоне перепроданности! (+3 очка)");
                 }
             }
-            // Медвежье пересечение (быстрая ниже медленной)
             else if(main_prev >= signal_prev && main_current < signal_current)
             {
-                // Сигнал №2: Обычное пересечение
                 short_score++;
-                Print("Stochastic(",EnumToString(_Period),"): Обнаружено обычное медвежье пересечение. Очки Short +1");
-                
-                // Сигнал №1: Пересечение в зоне перекупленности
+                Print("Stochastic Signal: Обнаружено медвежье пересечение (+1 очко)");
                 if(main_current > 80 && signal_current > 80)
                 {
                     short_score += 3;
-                    Print("Stochastic(",EnumToString(_Period),"): Пересечение в зоне перекупленности! Очки Short +3");
+                    Print("Stochastic Signal: Пересечение в зоне перекупленности! (+3 очка)");
                 }
             }
+        }
+        else
+        {
+            Print("Stochastic: Недостаточно данных для анализа.");
         }
         IndicatorRelease(stochastic_handle);
     }
