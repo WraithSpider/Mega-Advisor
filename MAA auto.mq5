@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.21"
+#property version "4.22"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -335,6 +335,7 @@ void CheckFractalDivergence(int &long_score, int &short_score)
 
 
 // --- Функция углубленного анализа MACD ---
+// --- Функция углубленного анализа MACD ---
 void CheckDeepMACD(int &long_score, int &short_score)
 {
     int macd_handle = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);
@@ -352,8 +353,9 @@ void CheckDeepMACD(int &long_score, int &short_score)
         {
             double main_current = macd_main_buffer[1];
             double main_prev = macd_main_buffer[2];
-            double signal_current = macd_signal_buffer[1]; 
-            double signal_prev = macd_signal_buffer[2];   
+            // *** ИСПРАВЛЕНИЕ ОПЕЧАТКИ ***
+            double signal_current = macd_signal_buffer[1];
+            double signal_prev = macd_signal_buffer[2];
             double hist_current = macd_histogram_buffer[1];
             double hist_prev = macd_histogram_buffer[2];
 
