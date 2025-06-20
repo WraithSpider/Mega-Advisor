@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.31"
+#property version "4.30"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -42,6 +42,7 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score);
 void CheckStochastic(int &long_score, int &short_score);
 void CheckBollingerSqueeze(int &long_score, int &short_score);
 void CheckFibonacciRetracement(int &long_score, int &short_score);
+void CheckVWAP(int &long_score, int &short_score);
 
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -97,6 +98,7 @@ void OnTick()
     CheckStochastic(long_score, short_score);
     CheckBollingerSqueeze(long_score, short_score);
     CheckFibonacciRetracement(long_score, short_score);
+    CheckVWAP(long_score, short_score);
 
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -988,12 +990,12 @@ void CheckVWAP(int &long_score, int &short_score)
                     if(price_close > vwap_value)
                     {
                         long_score += 2;
-                        Print("VWAP: Цена выше VWAP. Очки Long +2");
+                        Print("VWAP: Цена выше VWAP. Long (+2 Очка)");
                     }
                     if(price_close < vwap_value)
                     {
                         short_score += 2;
-                        Print("VWAP: Цена ниже VWAP. Очки Short +2");
+                        Print("VWAP: Цена ниже VWAP. Short (+2 Очка)");
                     }
                 }
             }
