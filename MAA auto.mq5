@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.31"
+#property version "4.33"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -10,7 +10,9 @@ input double FirstTargetRatio      = 0.5;    // Коэффициент для п
 input double LotSize               = 0.01;   // ОБЩИЙ размер лота для сделки
 input int    StopLossBufferPips    = 15; // Отступ для Стоп-Лосса от уровня в пипсах
 input int    TakeProfitBufferPips  = 10; // Отступ для Тейк-Профита от уровня в пипсах
-input int MinBarsBetweenTrades = 4;       // Минимальное кол-во свечей между сделками
+input int    MinBarsBetweenTrades = 4;       // Минимальное кол-во свечей между сделками
+input int    MinProfitPips = 20; // Минимальная дистанция до TP в пипсах, чтобы сделка имела смысл
+input int    TrailingStopPips      = 50;     // Дистанция трейлинг-стопа в пипсах (0 = выключен)
 
 //--- Входные параметры для сигналов
 input group "--- Пороги Сигналов ---"
@@ -58,6 +60,9 @@ void OnDeinit(const int reason)
     ObjectDelete(0, "MegaAnalysis_Line1");
     ObjectDelete(0, "MegaAnalysis_Line2");
     ObjectDelete(0, "MegaAnalysis_Line3");
+    ObjectDelete(0, "SR_Support_Line");
+    ObjectDelete(0, "SR_Resistance_Line");
+    ChartRedraw();
     ChartRedraw();
 }
 
@@ -103,45 +108,62 @@ void OnTick()
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
     int total_score = long_score + short_score;
+    double long_probability = 0, short_probability = 0;
+    
     if(total_score > 0)
     {
-        double long_probability = (double)long_score / total_score * 100;
-        double short_probability = (double)short_score / total_score * 100;
-        UpdateDashboard(long_score, short_score, long_probability, short_probability);
-        
-        string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
-        Print(print_report);
+        long_probability = (double)long_score / total_score * 100;
+        short_probability = (double)short_score / total_score * 100;
+    }
+    
+    // Вызываем нашу функцию для отображения на панели
+    // UpdateDashboard(g_debug_log, long_score, short_score, long_probability, short_probability);
+    
+    string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
+    Print(print_report);
 
-        // --- Проверяем все фильтры перед торговлей ---
-        if(barsSinceLastTrade < MinBarsBetweenTrades)
+    // --- НАЧАЛО БЛОКА ПРОВЕРОК ПЕРЕД СДЕЛКОЙ ---
+    if(barsSinceLastTrade < MinBarsBetweenTrades)
+    {
+        Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
+    }
+    else if(!IsTrendStrongADX())
+    {
+        // Сообщение выводится из самой функции IsTrendStrongADX
+    }
+    else if(!IsVolatilitySufficient())
+    {
+        // Сообщение выводится из самой функции IsVolatilitySufficient
+    }
+    else if(PositionSelect(_Symbol) == true)
+    {
+        Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
+        CheckTrailingStop(); // Если позиция есть, проверяем трейлинг-стоп
+    }
+    else // Если все предварительные фильтры пройдены и позиций нет, приступаем к основной логике
+    {
+        double support=0, resistance=0;
+        if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
         {
-            Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
-        }
-        else if(!IsVolatilitySufficient())
-        {
-            Print("Торговля пропущена: низкая волатильность (ATR).");
-        }
-        else if(PositionSelect(_Symbol) == true)
-        {
-            Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-        }
-        else // Если все фильтры пройдены, приступаем к торговле
-        {
-            double support=0, resistance=0;
-            if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
+            // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
+            if (long_probability >= long_score_threshold)
             {
-                // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
-                if (long_probability >= long_score_threshold)
+                double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+                double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                double final_tp = resistance - (TakeProfitBufferPips * 10 * point);
+
+                // Проверка на "пространство для маневра"
+                if((final_tp - price) < (MinProfitPips * 10 * point))
+                {
+                    Print("Long-сделка пропущена: недостаточно пространства до уровня сопротивления.");
+                }
+                else // Если пространство есть, открываем сделку/сделки
                 {
                     double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
                     if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
 
-                    Print("Получен сигнал LONG. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
-                    double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK), point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                    
-                    // Используем РАЗДЕЛЬНЫЕ отступы для SL и TP
+                    Print("Получен сигнал LONG. Открываем %d частичных ордера...", NumberOfTrades);
                     double stop_loss = support - (StopLossBufferPips * 10 * point);
-                    double final_tp = resistance - (TakeProfitBufferPips * 10 * point);
                     
                     for(int i = 0; i < NumberOfTrades; i++)
                     {
@@ -151,39 +173,44 @@ void OnTick()
                         r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
                         r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by MAA";
                         if(!OrderSend(r,res)) { Print("Ошибка BUY: %d", res.retcode); }
-                        else { Print("BUY #%d отправлен.", i+1); barsSinceLastTrade = 0; } // Сбрасываем счетчик
+                        else { Print("BUY #%d отправлен.", i+1); barsSinceLastTrade = 0; }
                     }
                 }
-                // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
-                else if (short_probability >= short_score_threshold)
+            }
+            // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
+            else if (short_probability >= short_score_threshold)
+            {
+                double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+                double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+                double final_tp = support + (TakeProfitBufferPips * 10 * point);
+
+                // Проверка на "пространство для маневра"
+                if((price - final_tp) < (MinProfitPips * 10 * point))
+                {
+                    Print("Short-сделка пропущена: недостаточно пространства до уровня поддержки.");
+                }
+                else // Если пространство есть, открываем сделку/сделки
                 {
                     double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
                     if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
 
-                    Print("Получен сигнал SHORT. Открываем %d частичных ордера с динамическими целями...", NumberOfTrades);
-                    double price = SymbolInfoDouble(_Symbol, SYMBOL_BID), point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-
-                    // Используем РАЗДЕЛЬНЫЕ отступы для SL и TP
+                    Print("Получен сигнал SHORT. Открываем %d частичных ордера...", NumberOfTrades);
                     double stop_loss = resistance + (StopLossBufferPips * 10 * point);
-                    double final_tp = support + (TakeProfitBufferPips * 10 * point);
-
+                    
                     for(int i = 0; i < NumberOfTrades; i++)
                     {
                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
                        double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
-                       
                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
                        r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
                        if(!OrderSend(r,res)) { Print("Ошибка SELL: %d", res.retcode); }
-                       else { Print("SELL #%d отправлен.", i+1); barsSinceLastTrade = 0; } // Сбрасываем счетчик
+                       else { Print("SELL #%d отправлен.", i+1); barsSinceLastTrade = 0; }
                     }
                 }
             }
         }
     }
-    else { UpdateDashboard(0,0,0,0); }
 }
-
 
 //+------------------------------------------------------------------+
 //|                                                                  |
@@ -941,7 +968,6 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
         // --- Сценарий 2: Последняя волна была НИСХОДЯЩЕЙ (предыдущая точка выше последней) ---
         else if(newest_point_price < prev_point_price)
         {
-            Print("Fibo: Обнаружена нисходящая волна. Ищу откат для продажи.");
             double swing_high = prev_point_price;
             double swing_low = newest_point_price;
             double swing_range = swing_high - swing_low;
@@ -1074,7 +1100,6 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
         return;
     }
     
-    // Ищем самый высокий пик (сопротивление) и самую низкую впадину (поддержку)
     double resistance_level = 0;
     double support_level = 999999;
 
@@ -1092,9 +1117,25 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
 
     IndicatorRelease(fractals_handle);
 
-    // --- Применяем логику начисления очков ---
+    // --- Если уровни найдены, применяем логику И РИСУЕМ ИХ ---
     if(resistance_level > 0 && support_level < 999999)
     {
+        // ++++++++++ НОВЫЙ БЛОК: ВИЗУАЛИЗАЦИЯ УРОВНЕЙ ++++++++++
+        // Рисуем линию поддержки
+        if(ObjectFind(0,"SR_Support_Line")!=0) ObjectCreate(0,"SR_Support_Line",OBJ_HLINE,0,0,0);
+        ObjectSetDouble(0,"SR_Support_Line",OBJPROP_PRICE,support_level);
+        ObjectSetInteger(0,"SR_Support_Line",OBJPROP_COLOR,clrLimeGreen);
+        ObjectSetInteger(0,"SR_Support_Line",OBJPROP_STYLE,STYLE_DOT);
+        ObjectSetInteger(0,"SR_Support_Line",OBJPROP_WIDTH,2);
+
+        // Рисуем линию сопротивления
+        if(ObjectFind(0,"SR_Resistance_Line")!=0) ObjectCreate(0,"SR_Resistance_Line",OBJ_HLINE,0,0,0);
+        ObjectSetDouble(0,"SR_Resistance_Line",OBJPROP_PRICE,resistance_level);
+        ObjectSetInteger(0,"SR_Resistance_Line",OBJPROP_COLOR,clrRed);
+        ObjectSetInteger(0,"SR_Resistance_Line",OBJPROP_STYLE,STYLE_DOT);
+        ObjectSetInteger(0,"SR_Resistance_Line",OBJPROP_WIDTH,2);
+        // +++++++++++++++++++++++++++++++++++++++++++++++++++++++
+
         MqlRates rates[];
         if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0)
         {
@@ -1106,14 +1147,14 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
             if(MathAbs(price_low - support_level) <= proximity_zone)
             {
                 long_score += 3;
-                Print("S/R Levels: Цена у уровня поддержки. Очки Long +3");
+                Print("S/R Levels: Цена у уровня поддержки (+3 очка)");
             }
 
             // Проверяем близость к уровню сопротивления
             if(MathAbs(price_high - resistance_level) <= proximity_zone)
             {
                 short_score += 3;
-                Print("S/R Levels: Цена у уровня сопротивления. Очки Short +3");
+                Print("S/R Levels: Цена у уровня сопротивления (+3 очка)");
             }
         }
     }
@@ -1155,14 +1196,14 @@ void CheckADXCrossover(int &long_score, int &short_score)
                 if(plus_di_prev <= minus_di_prev && plus_di_current > minus_di_current)
                 {
                     long_score += 2;
-                    Print("ADX: Обнаружено бычье пересечение (+DI > -DI). Очки Long +2");
+                    Print("ADX: Обнаружено бычье пересечение (+DI > -DI). Long (+2 Очка)");
                 }
                 
                 // Медвежье пересечение: -DI пересекает +DI снизу вверх
                 if(minus_di_prev <= plus_di_prev && minus_di_current > plus_di_current)
                 {
                     short_score += 2;
-                    Print("ADX: Обнаружено медвежье пересечение (-DI > +DI). Очки Short +2");
+                    Print("ADX: Обнаружено медвежье пересечение (-DI > +DI). Short (+2 Очка)");
                 }
             }
             else
@@ -1199,6 +1240,94 @@ bool IsTrendStrongADX()
     IndicatorRelease(adx_handle);
     Print("Торговля заблокирована фильтром ADX: на рынке нет сильного тренда.");
     return false; // Тренд слабый, торговля запрещена
+}
+
+// --- Функция для управления трейлинг-стопом ---
+void CheckTrailingStop()
+{
+    // Если трейлинг-стоп выключен в настройках, ничего не делаем
+    if(TrailingStopPips <= 0)
+    {
+        return;
+    }
+
+    // Получаем информацию по открытой позиции
+    if(PositionSelect(_Symbol))
+    {
+        double current_sl = PositionGetDouble(POSITION_SL);
+        double current_tp = PositionGetDouble(POSITION_TP);
+        long   position_ticket = PositionGetInteger(POSITION_TICKET);
+        long   position_magic = PositionGetInteger(POSITION_MAGIC);
+        long   position_type = PositionGetInteger(POSITION_TYPE);
+        
+        // Убеждаемся, что работаем только с позицией нашего советника
+        if(position_magic != 12345)
+        {
+            return;
+        }
+
+        double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
+        double trailing_stop_distance = TrailingStopPips * 10 * point;
+        
+        // Логика для позиции на ПОКУПКУ (Long)
+        if(position_type == POSITION_TYPE_BUY)
+        {
+            double current_price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+            double new_stop_loss = current_price - trailing_stop_distance;
+
+            // Передвигаем стоп, только если он выше текущего
+            if(new_stop_loss > current_sl || current_sl == 0)
+            {
+                MqlTradeRequest request;
+                MqlTradeResult result;
+                ZeroMemory(request);
+                ZeroMemory(result);
+                
+                request.action = TRADE_ACTION_SLTP; // Модификация SL/TP
+                request.position = position_ticket;
+                request.sl = new_stop_loss;
+                request.tp = current_tp; // Тейк-профит оставляем прежним
+                
+                if(!OrderSend(request, result))
+                {
+                    Print("Ошибка модификации Trailing Stop (BUY): %d", result.retcode);
+                }
+                else
+                {
+                    Print("Trailing Stop (BUY) успешно передвинут на %.5f", new_stop_loss);
+                }
+            }
+        }
+        // Логика для позиции на ПРОДАЖУ (Short)
+        else if(position_type == POSITION_TYPE_SELL)
+        {
+            double current_price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+            double new_stop_loss = current_price + trailing_stop_distance;
+
+            // Передвигаем стоп, только если он ниже текущего
+            if(new_stop_loss < current_sl || current_sl == 0)
+            {
+                MqlTradeRequest request;
+                MqlTradeResult result;
+                ZeroMemory(request);
+                ZeroMemory(result);
+                
+                request.action = TRADE_ACTION_SLTP;
+                request.position = position_ticket;
+                request.sl = new_stop_loss;
+                request.tp = current_tp;
+                
+                if(!OrderSend(request, result))
+                {
+                    Print("Ошибка модификации Trailing Stop (SELL): %d", result.retcode);
+                }
+                else
+                {
+                    Print("Trailing Stop (SELL) успешно передвинут на %.5f", new_stop_loss);
+                }
+            }
+        }
+    }
 }
 
 // --- Функция для обновления панели на графике ---
