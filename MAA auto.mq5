@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.19"
+#property version "4.20"
 string g_debug_log = "";
 
 //--- Входные параметры для торговли
@@ -48,11 +48,14 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
 bool IsVolatilitySufficient();
 bool IsTrendStrongADX();
 
-//--- Стандартные функции советника ---
-int OnInit() { return(INIT_SUCCEEDED); }
+// --- Новая функция: ОЧИЩАЕТ глобальные переменные ---
 void OnDeinit(const int reason)
 {
-    Comment(""); // Очищаем комментарий при удалении советника
+    GlobalVariableDel("MAA_DebugLog");
+    GlobalVariableDel("MAA_LongScore");
+    GlobalVariableDel("MAA_ShortScore");
+    GlobalVariableDel("MAA_LongProb");
+    GlobalVariableDel("MAA_ShortProb");
 }
 
 //+------------------------------------------------------------------+
@@ -176,16 +179,14 @@ void OnTick()
 //|                                                                  |
 //+------------------------------------------------------------------+
 
-// --- Функция обновления панели на графике ---
+// --- Новая функция: ЗАПИСЫВАЕТ данные в глобальные переменные ---
 void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob)
 {
-    string final_text = "-- Анализ Сигналов --\n";
-    final_text += debug_log;
-    final_text += "--------------------------------\n";
-    final_text += StringFormat("ИТОГО Long/Short: %d / %d\n", long_score, short_score);
-    final_text += StringFormat("Вероятность Long: %.0f%%\n", long_prob);
-    final_text += StringFormat("Вероятность Short: %.0f%%", short_prob);
-    Comment(final_text);
+    GlobalVariableSet("MAA_DebugLog", debug_log);
+    GlobalVariableSet("MAA_LongScore", long_score);
+    GlobalVariableSet("MAA_ShortScore", short_score);
+    GlobalVariableSet("MAA_LongProb", long_prob);
+    GlobalVariableSet("MAA_ShortProb", short_prob);
 }
 
 // --- Функция для D1 Тренда с записью в лог ---
