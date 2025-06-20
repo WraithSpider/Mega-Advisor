@@ -23,6 +23,7 @@ input int short_score_threshold = 80;     // Порог в % для сигнал
 
 //--- Входные параметры для фильтров
 input group "--- Фильтры ---"
+input int    MaxSpreadPips       = 5;      // Максимально допустимый спред для торговли в пипсах (0 = выключен)
 input int    ADX_TrendStrength     = 25;     // Минимальная сила тренда по ADX
 input int    SR_ProximityPips      = 15;     // Зона приближения к уровням S/R в пипсах
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
@@ -36,6 +37,7 @@ input double PinBarMinWickRatio = 0.60; // Мин. размер главной �
 input double DojiMaxBodyRatio   = 0.15; // Макс. размер тела для Доджи (15% от свечи)
 input int    DojiClusterBars    = 5;    // На скольких свечах ищем скопление
 input int    DojiClusterMinCount= 3;    // Сколько минимум Доджи должно быть для скопления
+input int    MinGapPips = 20; // Минимальный размер гэпа в пипсах для сигнала
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -59,11 +61,12 @@ void CheckVWRSI(int &long_score, int &short_score);
 void CheckImbalance_Advanced(int &long_score, int &short_score);
 void CheckPinBarSignal(int &long_score, int &short_score);
 void CheckDojiClusterBreakout(int &long_score, int &short_score);
+void CheckWeekendGap(int &long_score, int &short_score);
 double CalculateVWRSI(int period);
 bool IsVolatilityOptimal();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 bool IsTrendStrongADX();
-
+bool IsSpreadAcceptable();
 
 //+------------------------------------------------------------------+
 //| Стандартные функции советника                                    |
@@ -121,6 +124,7 @@ void OnTick()
     CheckPinBarSignal(long_score, short_score);
     CheckImbalance_Advanced(long_score, short_score);
     CheckDojiClusterBreakout(long_score, short_score);
+    CheckWeekendGap(long_score, short_score);
 
    
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
@@ -150,6 +154,10 @@ void OnTick()
             // Сообщение выводится из самой функции IsTrendStrongADX
         }
         else if(!IsVolatilityOptimal())
+        {
+        
+        }
+        else if(!IsSpreadAcceptable()) // << НАШ НОВЫЙ ФИЛЬТР СРЕДА
         {
             // Сообщение выводится из самой функции IsVolatilitySufficient
         }
@@ -1615,6 +1623,69 @@ void CheckDojiClusterBreakout(int &long_score, int &short_score)
             if(EnableDebugLogs) Print("Doji Cluster: Пробой вниз из скопления! (+4 очка)");
         }
     }
+}
+
+// --- Функция анализа гэпа выходного дня ---
+void CheckWeekendGap(int &long_score, int &short_score)
+{
+    // --- Получаем информацию о времени текущей свечи ---
+    MqlDateTime current_time_struct;
+    TimeCurrent(current_time_struct);
+    
+    // --- Этот анализ работает ТОЛЬКО в понедельник в первые несколько часов ---
+    if(current_time_struct.day_of_week != MONDAY || current_time_struct.hour > 4)
+    {
+        return; // Если не утро понедельника, выходим
+    }
+
+    // --- Получаем данные текущей и предыдущей свечи ---
+    MqlRates rates[];
+    if(CopyRates(_Symbol, _Period, 0, 2, rates) < 2) return;
+    ArraySetAsSeries(rates, true);
+
+    double current_open = rates[0].open;
+    double prev_close = rates[1].close;
+    
+    double gap_size_pips = MathAbs(current_open - prev_close) / (_Point * 10);
+
+    // --- Проверяем, достаточно ли большой гэп ---
+    if(gap_size_pips >= MinGapPips)
+    {
+        // Сценарий "Гэп ВВЕРХ" -> сигнал на продажу для закрытия гэпа
+        if(current_open > prev_close)
+        {
+            short_score += 4;
+            if(EnableDebugLogs) PrintFormat("Gap Analysis: Обнаружен гэп вверх на %.1f пипсов. (+4 очка Short)", gap_size_pips);
+        }
+        
+        // Сценарий "Гэп ВНИЗ" -> сигнал на покупку для закрытия гэпа
+        if(current_open < prev_close)
+        {
+            long_score += 4;
+            if(EnableDebugLogs) PrintFormat("Gap Analysis: Обнаружен гэп вниз на %.1f пипсов. (+4 очка Long)", gap_size_pips);
+        }
+    }
+}
+
+
+// --- Функция-фильтр: проверяет, приемлем ли текущий спред ---
+bool IsSpreadAcceptable()
+{
+    // Если фильтр выключен в настройках, всегда разрешаем торговлю
+    if(MaxSpreadPips <= 0) return true;
+
+    // Получаем текущий спред в пунктах
+    double current_spread_points = (double)SymbolInfoInteger(_Symbol, SYMBOL_SPREAD);
+    // Переводим в пипсы (для 5-значных котировок делим на 10)
+    double current_spread_pips = current_spread_points / 10.0;
+    
+    if(current_spread_pips > MaxSpreadPips)
+    {
+        if(EnableDebugLogs) PrintFormat("Фильтр спреда: Торговля запрещена. Текущий спред (%.1f пипсов) > Максимального (%.1f пипсов)", current_spread_pips, (double)MaxSpreadPips);
+        return false;
+    }
+    
+    return true;
 }
 
 // --- Функция для обновления панели на графике ---
