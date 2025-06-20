@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.34"
+#property version "4.33"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -149,66 +149,72 @@ void OnTick()
                 double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
                 
                 // --- ЛОГИКА ДЛЯ СИГНАЛА НА ПОКУПКУ (LONG) ---
-                if (long_probability >= long_score_threshold)
-                {
-                    double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
-                    double potential_tp_level_rebound = resistance - (TakeProfitBufferPips * 10 * point);
-
-                    // --- СЦЕНАРИЙ 1: ВХОД НА "ОТБОЙ" (достаточно места до сопротивления) ---
-                    if((potential_tp_level_rebound - price) >= (MinProfitPips * 10 * point))
+                    if (long_probability >= long_score_threshold)
                     {
-                        Print("Логика: Вход по сценарию 'Отбой'. Цель у уровня сопротивления.");
-                        double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
-                        if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
+                        double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+                        double potential_tp_level_rebound = resistance - (TakeProfitBufferPips * 10 * point);
 
-                        double stop_loss = support - (StopLossBufferPips * 10 * point);
-                        double final_tp = potential_tp_level_rebound;
-
-                        for(int i = 0; i < NumberOfTrades; i++)
+                        // --- СЦЕНАРИЙ 1: ВХОД НА "ОТБОЙ" ---
+                        if((potential_tp_level_rebound - price) >= (MinProfitPips * 10 * point))
                         {
-                            MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                            double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
-                            r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
-                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by Rebound";
-                            if(!OrderSend(r,res)) Print("Ошибка BUY Rebound: %d", res.retcode); else { Print("BUY Rebound #%d отправлен.", i+1); barsSinceLastTrade = 0; }
-                        }
-                    }
-                    // --- СЦЕНАРИЙ 2: ВХОД НА "ПРОБОЙ" (цена уже выше сопротивления) ---
-                    else if (price > resistance + (SR_ProximityPips * 10 * point))
-                    {
-                        Print("Логика: Вход по сценарию 'Пробой'. Цель по ATR.");
-                        double atr_value = iATR(_Symbol, _Period, 14, 1);
-                        if(atr_value > 0)
-                        {
+                            Print("Логика: Вход по сценарию 'Отбой'. Цель у уровня сопротивления.");
                             double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
                             if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
 
-                            double stop_loss = resistance - (StopLossBufferPips * 10 * point);
-                            double final_tp = price + (atr_value * BreakoutTP_ATR_Multiplier);
+                            double stop_loss = support - (StopLossBufferPips * 10 * point);
+                            double final_tp = potential_tp_level_rebound;
 
                             for(int i = 0; i < NumberOfTrades; i++)
                             {
-                               MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                               double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
-                               r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
-                               r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by Breakout";
-                               if(!OrderSend(r,res)) Print("Ошибка BUY Breakout: %d", res.retcode); else { Print("BUY Breakout #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                                MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                                double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+                                r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
+                                r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by Rebound";
+                                if(!OrderSend(r,res)) Print("Ошибка BUY Rebound: %d", res.retcode); else { Print("BUY Rebound #%d отправлен.", i+1); barsSinceLastTrade = 0; }
                             }
                         }
+                        // --- СЦЕНАРИЙ 2: ВХОД НА "ПРОБОЙ" ---
+                        else if (price > resistance + (SR_ProximityPips * 10 * point))
+                        {
+                            Print("Логика: Вход по сценарию 'Пробой'. Цель по ATR.");
+                            int atr_handle = iATR(_Symbol, _Period, 14);
+                            if(atr_handle != INVALID_HANDLE)
+                            {
+                                double atr_buffer[]; ArraySetAsSeries(atr_buffer, true);
+                                if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
+                                {
+                                    double atr_value = atr_buffer[0];
+                                    double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); IndicatorRelease(atr_handle); return; }
+
+                                    double stop_loss = resistance - (StopLossBufferPips * 10 * point);
+                                    double final_tp = price + (atr_value * BreakoutTP_ATR_Multiplier);
+
+                                    for(int i = 0; i < NumberOfTrades; i++)
+                                    {
+                                       MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                                       double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+                                       r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
+                                       r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by Breakout";
+                                       if(!OrderSend(r,res)) Print("Ошибка BUY Breakout: %d", res.retcode); else { Print("BUY Breakout #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                                    }
+                                }
+                                IndicatorRelease(atr_handle);
+                            }
+                        }
+                        else
+                        {
+                            Print("Long-сделка пропущена: цена слишком близко к сопротивлению, но пробоя еще нет.");
+                        }
                     }
-                    else
-                    {
-                        Print("Long-сделка пропущена: цена слишком близко к сопротивлению, но пробоя еще нет.");
-                    }
-                }
                 
-                // --- ЛОГИКА ДЛЯ СИГНАЛА НА ПРОДАЖУ (SHORT) ---
+                                // --- ЛОГИКА ДЛЯ СИГНАЛА НА ПРОДАЖУ (SHORT) ---
                 else if (short_probability >= short_score_threshold)
                 {
                     double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
                     double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
                     
-                    // --- СЦЕНАРИЙ 1: Проверяем возможность входа на "ОТБОЙ" ---
+                    // --- СЦЕНАРИЙ 1: ВХОД НА "ОТБОЙ" (достаточно места до поддержки) ---
                     double potential_tp_level_rebound = support + (TakeProfitBufferPips * 10 * point);
                     if((price - potential_tp_level_rebound) >= (MinProfitPips * 10 * point))
                     {
@@ -231,32 +237,36 @@ void OnTick()
                            else { Print("SELL Rebound #%d отправлен.", i+1); barsSinceLastTrade = 0; }
                         }
                     }
-                        // --- СЦЕНАРИЙ 2: ВХОД НА "ПРОБОЙ" ---
-                        else if (price > resistance + (SR_ProximityPips * 10 * point))
+                    // --- СЦЕНАРИЙ 2: ВХОД НА "ПРОБОЙ" (цена уже ниже поддержки) ---
+                    else if(price < support - (SR_ProximityPips * 10 * point))
+                    {
+                        Print("Логика: Вход по сценарию 'Пробой'. Цель по ATR.");
+                        int atr_handle = iATR(_Symbol, _Period, 14);
+                        if(atr_handle != INVALID_HANDLE)
                         {
-                            Print("Логика: Вход по сценарию 'Пробой'. Цель по ATR.");
-                            // --- ПРАВИЛЬНОЕ ПОЛУЧЕНИЕ ЗНАЧЕНИЯ ATR ---
-                            int atr_handle = iATR(_Symbol, _Period, 14);
-                            if(atr_handle != INVALID_HANDLE)
+                            double atr_buffer[]; ArraySetAsSeries(atr_buffer, true);
+                            if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
                             {
-                                double atr_buffer[];
-                                ArraySetAsSeries(atr_buffer, true);
-                                if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
-                                {
-                                    double atr_value = atr_buffer[0];
-                                    double stop_loss = resistance - (StopLossBufferPips * 10 * point);
-                                    double take_profit = price + (atr_value * BreakoutTP_ATR_Multiplier);
+                                double atr_value = atr_buffer[0];
+                                double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                                if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); IndicatorRelease(atr_handle); return; }
 
-                            for(int i = 0; i < NumberOfTrades; i++)
-                            {
-                               MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                               double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
-                               
-                               r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
-                               r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by Breakout";
-                               if(!OrderSend(r,res)) { Print("Ошибка SELL Breakout: %d", res.retcode); }
-                               else { Print("SELL Breakout #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                                Print("Получен сигнал SHORT. Открываем %d частичных ордера...", NumberOfTrades);
+                                double stop_loss = support + (StopLossBufferPips * 10 * point); // Стоп над пробитым уровнем
+                                double final_tp = price - (atr_value * BreakoutTP_ATR_Multiplier); // Тейк на X * ATR
+
+                                for(int i = 0; i < NumberOfTrades; i++)
+                                {
+                                   MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                                   double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
+                                   
+                                   r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
+                                   r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by Breakout";
+                                   if(!OrderSend(r,res)) { Print("Ошибка SELL Breakout: %d", res.retcode); }
+                                   else { Print("SELL Breakout #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                                }
                             }
+                            IndicatorRelease(atr_handle);
                         }
                     }
                     else
@@ -266,7 +276,7 @@ void OnTick()
                 }
             }
         }
-   }
+   
 }
 
 //+------------------------------------------------------------------+
