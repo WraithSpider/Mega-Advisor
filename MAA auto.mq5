@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.23"
+#property version "4.26"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -278,130 +278,170 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         return;
     }
 
-    int first_peak_bar = -1, second_peak_bar = -1;
+    // --- Поиск Медвежьей дивергенции (по пикам) ---
+    int newest_peak_idx = -1, older_peak_idx = -1;
     for(int i = 3; i < history_bars; i++)
     {
         if(fractals_up_buffer[i] != EMPTY_VALUE)
         {
-            if(first_peak_bar == -1) first_peak_bar = i;
-            else { second_peak_bar = i; break; }
+            if(newest_peak_idx == -1) { newest_peak_idx = i; }
+            else { older_peak_idx = i; break; }
         }
     }
 
-    if(first_peak_bar != -1 && second_peak_bar != -1)
+    if(newest_peak_idx > 0 && older_peak_idx > 0)
     {
-        double price_peak1 = fractals_up_buffer[first_peak_bar];
-        double price_peak2 = fractals_up_buffer[second_peak_bar];
-        double rsi_peak1 = rsi_buffer[first_peak_bar];
-        double rsi_peak2 = rsi_buffer[second_peak_bar];
+        double price_new_peak = fractals_up_buffer[newest_peak_idx];
+        double price_old_peak = fractals_up_buffer[older_peak_idx];
+        double rsi_new_peak = rsi_buffer[newest_peak_idx];
+        double rsi_old_peak = rsi_buffer[older_peak_idx];
 
-        if(price_peak1 > price_peak2 && rsi_peak1 < rsi_peak2)
+        // Классическая медвежья дивергенция: цена делает более высокий максимум, а RSI - более низкий
+        if(price_new_peak > price_old_peak && rsi_new_peak < rsi_old_peak)
         {
             short_score += 5;
-            Print("Медвежья дивергенция - Short (+5 очко)"); 
+            Print("Divergence - Long  (+5 очков)");
         }
     }
 
-    int first_trough_bar = -1, second_trough_bar = -1;
+    // --- Поиск Бычьей дивергенции (по впадинам) ---
+    int newest_trough_idx = -1, older_trough_idx = -1;
     for(int i = 3; i < history_bars; i++)
     {
         if(fractals_down_buffer[i] != EMPTY_VALUE)
         {
-            if(first_trough_bar == -1) first_trough_bar = i;
-            else { second_trough_bar = i; break; }
+            if(newest_trough_idx == -1) { newest_trough_idx = i; }
+            else { older_trough_idx = i; break; }
         }
     }
 
-    if(first_trough_bar != -1 && second_trough_bar != -1)
+    if(newest_trough_idx > 0 && older_trough_idx > 0)
     {
-        double price_trough1 = fractals_down_buffer[first_trough_bar];
-        double price_trough2 = fractals_down_buffer[second_trough_bar];
-        double rsi_trough1 = rsi_buffer[first_trough_bar];
-        double rsi_trough2 = rsi_buffer[second_trough_bar];
-
-        if(price_trough1 < price_trough2 && rsi_trough1 > rsi_trough2)
+        double price_new_trough = fractals_down_buffer[newest_trough_idx];
+        double price_old_trough = fractals_down_buffer[older_trough_idx];
+        double rsi_new_trough = rsi_buffer[newest_trough_idx];
+        double rsi_old_trough = rsi_buffer[older_trough_idx];
+        
+        // Классическая бычья дивергенция: цена делает более низкий минимум, а RSI - более высокий
+        if(price_new_trough < price_old_trough && rsi_new_trough > rsi_old_trough)
         {
             long_score += 5;
-            Print("Бычья дивергенция - Long (+5 очко)");
+            Print("Divergence - Short  (+5 очков)");
         }
     }
+
     IndicatorRelease(rsi_handle);
     IndicatorRelease(fractals_handle);
 }
 
-// --- Функция углубленного анализа MACD (ДИАГНОСТИЧЕСКАЯ ВЕРСИЯ) ---
+// --- Функция углубленного анализа MACD  ---
 void CheckDeepMACD(int &long_score, int &short_score)
 {
-    Print("--- Запуск CheckDeepMACD ---"); // ТРАССЕР 1: Проверяем, что функция вообще вызывается
-
     int macd_handle = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);
-
     if(macd_handle != INVALID_HANDLE)
     {
-        Print("MACD: Хэндл успешно создан."); // ТРАССЕР 2: Проверяем создание хэндла
-
-        double macd_main_buffer[], macd_signal_buffer[], macd_histogram_buffer[];
+        // Готовим буферы только для главной и сигнальной линий
+        double macd_main_buffer[], macd_signal_buffer[];
         int data_to_copy = 3; 
         ArraySetAsSeries(macd_main_buffer, true);
         ArraySetAsSeries(macd_signal_buffer, true);
-        ArraySetAsSeries(macd_histogram_buffer, true);
         
-        // Копируем данные в переменные, чтобы проверить результат
-        int copied_main = CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer);
-        int copied_signal = CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer);
-        int copied_hist = CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer);
-        
-        Print("MACD: Попытка копирования данных. Скопировано Main:%d, Signal:%d, Hist:%d", copied_main, copied_signal, copied_hist); // ТРАССЕР 3
-
-        if(copied_main > 0 && copied_signal > 0 && copied_hist > 0)
+        // Копируем данные только из существующих буферов 0 и 1
+        if(CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer) > 0 &&
+           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0)
         {
-            Print("MACD: Вход в блок анализа сигналов."); // ТРАССЕР 4: Проверяем, что вошли в главный блок
-            
+            // Извлекаем значения для свечей
             double main_current = macd_main_buffer[1];
             double main_prev = macd_main_buffer[2];
             double signal_current = macd_signal_buffer[1];
             double signal_prev = macd_signal_buffer[2];
-            double hist_current = macd_histogram_buffer[1];
-            double hist_prev = macd_histogram_buffer[2];
 
-            if(main_prev <= signal_prev && main_current > signal_current) { long_score += 3; Print("MACD Crossover: Long (+3 очка)"); }
-            if(main_prev >= signal_prev && main_current < signal_current) { short_score += 3; Print("MACD Crossover: Short (+3 очка)"); }
+            // --- Рассчитываем гистограмму вручную ---
+            double hist_current = main_current - signal_current;
+            double hist_prev = main_prev - signal_prev;
+
+            // --- 1. Анализ ПЕРЕСЕЧЕНИЯ (+3 очка) ---
+            if(main_prev <= signal_prev && main_current > signal_current)
+            {
+                long_score += 3;
+                Print("MACD Crossover: Long (+3 очка)");
+            }
+            if(main_prev >= signal_prev && main_current < signal_current)
+            {
+                short_score += 3;
+                Print("MACD Crossover: Short (+3 очка)");
+            }
     
-            if(main_current > signal_current) { long_score++; Print("MACD State: Long (+1 очко)"); }
-            if(main_current < signal_current) { short_score++; Print("MACD State: Short (+1 очко)"); }
+            // --- 2. Анализ СОСТОЯНИЯ (+1 очко) ---
+            if(main_current > signal_current)
+            {
+                long_score++;
+                Print("MACD State: Long (+1 очко)");
+            }
+            if(main_current < signal_current)
+            {
+                short_score++;
+                Print("MACD State: Short (+1 очко)");
+            }
     
-            if(hist_current > hist_prev) { long_score++; Print("MACD Histogram: Long (+1 очко)"); }
-            if(hist_current < hist_prev) { short_score++; Print("MACD Histogram: Short (+1 очко)"); }
+            // --- 3. Анализ ИМПУЛЬСА ГИСТОГРАММЫ (+1 очко) ---
+            if(hist_current > hist_prev)
+            {
+                long_score++;
+                Print("MACD Histogram: Long (+1 очко)");
+            }
+            if(hist_current < hist_prev)
+            {
+                short_score++;
+                Print("MACD Histogram: Short (+1 очко)");
+            }
         }
         else
         {
-            Print("MACD: Данных для анализа недостаточно."); // Это сообщение должно было появляться раньше
+            Print("MACD: Недостаточно данных для анализа на текущей свече.");
         }
-        
         IndicatorRelease(macd_handle);
     }
     else
     {
-        Print("MACD: КРИТИЧЕСКАЯ ОШИБКА! Не удалось создать хэндл для индикатора MACD.");
+        Print("Ошибка: не удалось создать хэндл для индикатора MACD.");
     }
 }
 
 
 // --- Функция для пересечения EMA(12,26) ---
-void CheckEMACross(int &long_score, int &short_score){
+void CheckEMACross(int &long_score, int &short_score)
+{
     int ema12_handle = iMA(_Symbol, _Period, 12, 0, MODE_EMA, PRICE_CLOSE);
     int ema26_handle = iMA(_Symbol, _Period, 26, 0, MODE_EMA, PRICE_CLOSE);
-    double ema12_buffer[], ema26_buffer[];
-    ArraySetAsSeries(ema12_buffer, true);
-    ArraySetAsSeries(ema26_buffer, true);
-    if(CopyBuffer(ema12_handle, 0, 1, 1, ema12_buffer) > 0 && CopyBuffer(ema26_handle, 0, 1, 1, ema26_buffer) > 0)
+    
+    // Добавим проверку хэндлов для надежности
+    if(ema12_handle != INVALID_HANDLE && ema26_handle != INVALID_HANDLE)
     {
-        double ema12 = ema12_buffer[0];
-        double ema26 = ema26_buffer[0];
-        if (ema12 > ema26) long_score += 2;
-        if (ema12 < ema26) short_score += 2;
-        Print("EMA(12/26) Cross(",EnumToString(_Period),"): состояние. Очки Long/Short: ",long_score,"/",short_score);
+        double ema12_buffer[], ema26_buffer[];
+        ArraySetAsSeries(ema12_buffer, true);
+        ArraySetAsSeries(ema26_buffer, true);
+        
+        if(CopyBuffer(ema12_handle, 0, 1, 1, ema12_buffer) > 0 && CopyBuffer(ema26_handle, 0, 1, 1, ema26_buffer) > 0)
+        {
+            double ema12 = ema12_buffer[0];
+            double ema26 = ema26_buffer[0];
+            
+            // --- НОВАЯ ЛОГИКА ВЫВОДА В ЖУРНАЛ ---
+            if (ema12 > ema26)
+            {
+                long_score += 2;
+                Print("EMA Cross(12/26): Long (+2 очка)");
+            }
+            if (ema12 < ema26)
+            {
+                short_score += 2;
+                Print("EMA Cross(12/26): Short (+2 очка)");
+            }
+        }
     }
+    
+    // Освобождаем оба хэндла в любом случае
     IndicatorRelease(ema12_handle);
     IndicatorRelease(ema26_handle);
 }
@@ -425,17 +465,39 @@ void CheckSMACross(int &long_score, int &short_score){
     IndicatorRelease(sma200_handle);
 }
 
-// --- Функция для цены относительно WMA(200) ---
-void CheckWMATrend(int &long_score, int &short_score){
-    int wma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_LWMA, PRICE_CLOSE);
-    if(wma200_handle != INVALID_HANDLE) {
-        double wma200_buffer[]; ArraySetAsSeries(wma200_buffer, true);
-        MqlRates rates[]; ArraySetAsSeries(rates, true); // << ОБЪЯВЛЕНИЕ ПЕРЕМЕЩЕНО СЮДА
-        if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 && CopyBuffer(wma200_handle, 0, 1, 1, wma200_buffer) > 0) {
-            if (rates[0].close > wma200_buffer[0]) long_score += 3; else short_score += 3;
+// --- Функция для SMA(50,200) "Золотого креста" ---
+void CheckSMACross(int &long_score, int &short_score)
+{
+    int sma50_handle = iMA(_Symbol, _Period, 50, 0, MODE_SMA, PRICE_CLOSE);
+    int sma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_SMA, PRICE_CLOSE);
+
+    if(sma50_handle != INVALID_HANDLE && sma200_handle != INVALID_HANDLE)
+    {
+        double sma50_buffer[], sma200_buffer[];
+        ArraySetAsSeries(sma50_buffer, true);
+        ArraySetAsSeries(sma200_buffer, true);
+
+        if(CopyBuffer(sma50_handle, 0, 1, 1, sma50_buffer) > 0 && CopyBuffer(sma200_handle, 0, 1, 1, sma200_buffer) > 0)
+        {
+            double sma50 = sma50_buffer[0];
+            double sma200 = sma200_buffer[0];
+
+            // --- НОВАЯ ЛОГИКА ВЫВОДА В ЖУРНАЛ ---
+            if (sma50 > sma200)
+            {
+                long_score += 3;
+                Print("SMA Cross(50/200): Long (Golden Cross) (+3 очка)");
+            }
+            if (sma50 < sma200)
+            {
+                short_score += 3;
+                Print("SMA Cross(50/200): Short (Death Cross) (+3 очка)");
+            }
         }
-        IndicatorRelease(wma200_handle);
     }
+    
+    IndicatorRelease(sma50_handle);
+    IndicatorRelease(sma200_handle);
 }
 
 // --- Функция для "умных" Полос Боллинджера ---
