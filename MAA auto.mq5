@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.26"
+#property version "4.28"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -446,24 +446,6 @@ void CheckEMACross(int &long_score, int &short_score)
     IndicatorRelease(ema26_handle);
 }
 
-// --- Функция для SMA(50,200) "Золотого креста" ---
-void CheckSMACross(int &long_score, int &short_score){
-    int sma50_handle = iMA(_Symbol, _Period, 50, 0, MODE_SMA, PRICE_CLOSE);
-    int sma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_SMA, PRICE_CLOSE);
-    double sma50_buffer[], sma200_buffer[];
-    ArraySetAsSeries(sma50_buffer, true);
-    ArraySetAsSeries(sma200_buffer, true);
-    if(CopyBuffer(sma50_handle, 0, 1, 1, sma50_buffer) > 0 && CopyBuffer(sma200_handle, 0, 1, 1, sma200_buffer) > 0)
-    {
-        double sma50 = sma50_buffer[0];
-        double sma200 = sma200_buffer[0];
-        if (sma50 > sma200) long_score += 3;
-        if (sma50 < sma200) short_score += 3;
-        Print("SMA(50/200) Cross(",EnumToString(_Period),"): состояние. Очки Long/Short: ",long_score,"/",short_score);
-    }
-    IndicatorRelease(sma50_handle);
-    IndicatorRelease(sma200_handle);
-}
 
 // --- Функция для SMA(50,200) "Золотого креста" ---
 void CheckSMACross(int &long_score, int &short_score)
@@ -498,6 +480,38 @@ void CheckSMACross(int &long_score, int &short_score)
     
     IndicatorRelease(sma50_handle);
     IndicatorRelease(sma200_handle);
+}
+
+// --- Функция для цены относительно WMA(200) ---
+void CheckWMATrend(int &long_score, int &short_score)
+{
+    int wma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_LWMA, PRICE_CLOSE);
+    if(wma200_handle != INVALID_HANDLE) 
+    {
+        double wma200_buffer[]; 
+        ArraySetAsSeries(wma200_buffer, true);
+        MqlRates rates[]; 
+        ArraySetAsSeries(rates, true);
+        
+        if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 && CopyBuffer(wma200_handle, 0, 1, 1, wma200_buffer) > 0) 
+        {
+            double close_price = rates[0].close;
+            double wma200 = wma200_buffer[0];
+            
+            // --- НОВАЯ ЛОГИКА ВЫВОДА В ЖУРНАЛ ---
+            if (close_price > wma200)
+            {
+                long_score += 3;
+                Print("WMA Trend(200): Цена выше линии (+3 очка)");
+            }
+            else // Условие "меньше или равно"
+            {
+                short_score += 3;
+                Print("WMA Trend(200): Цена ниже линии (+3 очка)");
+            }
+        }
+        IndicatorRelease(wma200_handle);
+    }
 }
 
 // --- Функция для "умных" Полос Боллинджера ---
@@ -536,7 +550,7 @@ void CheckSmartBBands(int &long_score, int &short_score){
                   if(price_close <= bb_lower)
                   {
                       long_score += 3; // Сильный сигнал по тренду
-                      Print("BBands(",EnumToString(_Period),"): покупка на откате в восходящем тренде. Очки Long +3");
+                      Print("BBands: покупка на откате в восходящем тренде. Long (+3 очка)");
                   }
               }
               // Сценарий 2: Глобальный тренд вниз
@@ -546,7 +560,7 @@ void CheckSmartBBands(int &long_score, int &short_score){
                   if(price_close >= bb_upper)
                   {
                       short_score += 3; // Сильный сигнал по тренду
-                      Print("BBands(",EnumToString(_Period),"): продажа на отскоке в нисходящем тренде. Очки Short +3");
+                      Print("BBands: продажа на отскоке в нисходящем тренде. Short (+3 очка)");
                   }
               }
               // Если цена около SMA 200, мы ничего не делаем
@@ -562,7 +576,8 @@ void CheckSmartBBands(int &long_score, int &short_score){
 }
 
 // --- Функция для анализа Облака Ишимоку ---
-void CheckIchimoku(int &long_score, int &short_score){
+void CheckIchimoku(int &long_score, int &short_score)
+{
     int ichimoku_handle = iIchimoku(_Symbol, _Period, 9, 26, 52);
     if(ichimoku_handle != INVALID_HANDLE)
     {
@@ -570,28 +585,73 @@ void CheckIchimoku(int &long_score, int &short_score){
         ArraySetAsSeries(tenkan_buffer, true); ArraySetAsSeries(kijun_buffer, true);
         ArraySetAsSeries(senkou_a_buffer, true); ArraySetAsSeries(senkou_b_buffer, true);
         ArraySetAsSeries(chikou_buffer, true);
-        if(CopyBuffer(ichimoku_handle, 0, 1, 1, tenkan_buffer) > 0 && CopyBuffer(ichimoku_handle, 1, 1, 1, kijun_buffer) > 0 &&
-           CopyBuffer(ichimoku_handle, 2, 0, 1, senkou_a_buffer) > 0 && CopyBuffer(ichimoku_handle, 3, 0, 1, senkou_b_buffer) > 0 &&
-           CopyBuffer(ichimoku_handle, 4, 26, 1, chikou_buffer) > 0)
+        
+        // Копируем все необходимые данные
+        if(CopyBuffer(ichimoku_handle, 0, 1, 1, tenkan_buffer) > 0 && 
+           CopyBuffer(ichimoku_handle, 1, 1, 1, kijun_buffer) > 0 &&
+           CopyBuffer(ichimoku_handle, 2, 0, 1, senkou_a_buffer) > 0 && // Облако берем для текущей свечи
+           CopyBuffer(ichimoku_handle, 3, 0, 1, senkou_b_buffer) > 0 &&
+           CopyBuffer(ichimoku_handle, 4, 26, 1, chikou_buffer) > 0)   // Chikou смещен на 26 баров
         {
-            double tenkan_sen = tenkan_buffer[0]; double kijun_sen = kijun_buffer[0];
-            double senkou_span_a = senkou_a_buffer[0]; double senkou_span_b = senkou_b_buffer[0];
+            double tenkan_sen = tenkan_buffer[0];
+            double kijun_sen = kijun_buffer[0];
+            double senkou_span_a = senkou_a_buffer[0];
+            double senkou_span_b = senkou_b_buffer[0];
             double chikou_span = chikou_buffer[0];
-            MqlRates current_rates[]; CopyRates(_Symbol, _Period, 0, 1, current_rates);
-            double current_price = current_rates[0].close;
-            MqlRates past_rates[]; CopyRates(_Symbol, _Period, 26, 1, past_rates);
-            double past_price = past_rates[0].close;
-            if(current_price > senkou_span_a && current_price > senkou_span_b) long_score += 3;
-            if(current_price < senkou_span_a && current_price < senkou_span_b) short_score += 3;
-            if(tenkan_sen > kijun_sen) long_score += 2;
-            if(tenkan_sen < kijun_sen) short_score += 2;
-            if(chikou_span > past_price) long_score++;
-            if(chikou_span < past_price) short_score++;
-            Print("Ichimoku(",EnumToString(_Period),"): анализ завершен. Очки Long/Short: ",long_score,"/",short_score);
+            
+            MqlRates current_rates[];
+            if(CopyRates(_Symbol, _Period, 0, 1, current_rates) > 0)
+            {
+                double current_price = current_rates[0].close;
+                
+                // 1. Цена vs Облако (+3 очка)
+                if(current_price > senkou_span_a && current_price > senkou_span_b)
+                {
+                    long_score += 3;
+                    Print("Ichimoku: Цена выше Облака (+3 очка)");
+                }
+                if(current_price < senkou_span_a && current_price < senkou_span_b)
+                {
+                    short_score += 3;
+                    Print("Ichimoku: Цена ниже Облака (+3 очка)");
+                }
+            }
+
+            // 2. Пересечение Tenkan/Kijun (+2 очка)
+            if(tenkan_sen > kijun_sen)
+            {
+                long_score += 2;
+                Print("Ichimoku: Tenkan > Kijun (+2 очка)");
+            }
+            if(tenkan_sen < kijun_sen)
+            {
+                short_score += 2;
+                Print("Ichimoku: Tenkan < Kijun (+2 очка)");
+            }
+            
+            // 3. Фильтр Chikou Span (+1 очко)
+            MqlRates past_rates[];
+            if(CopyRates(_Symbol, _Period, 26, 1, past_rates) > 0)
+            {
+                double past_price = past_rates[0].close;
+                if(chikou_span > past_price)
+                {
+                    long_score++;
+                    Print("Ichimoku: Chikou выше цены (+1 очко)");
+                }
+                if(chikou_span < past_price)
+                {
+                    short_score++;
+                    Print("Ichimoku: Chikou ниже цены (+1 очко)");
+                }
+            }
         }
         IndicatorRelease(ichimoku_handle);
     }
-    else { Print("Ошибка: не удалось создать хэндл для индикатора Ichimoku."); }
+    else 
+    {
+        Print("Ошибка: не удалось создать хэндл для индикатора Ichimoku.");
+    }
 }
 
    // --- Функция анализа Сжатия и Прорыва Полос Боллинджера ---
