@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.20"
+#property version "4.22"
 string g_debug_log = "";
 
 //--- Входные параметры для торговли
@@ -25,6 +25,7 @@ input int    SR_ProximityPips      = 15;     // Зона приближения 
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
 input double MinATR_Value          = 0.00050;// Минимальное значение ATR для торговли
 
+#define DATA_OBJECT_NAME "MAA_DATA_HOLDER" // Уникальное имя нашего объекта-посредника
 
 //--- Прототипы функций ---
 void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob);
@@ -48,14 +49,10 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
 bool IsVolatilitySufficient();
 bool IsTrendStrongADX();
 
-// --- Новая функция: ОЧИЩАЕТ глобальные переменные ---
+// --- При удалении советника удаляем почтовый ящик ---
 void OnDeinit(const int reason)
 {
-    GlobalVariableDel("MAA_DebugLog");
-    GlobalVariableDel("MAA_LongScore");
-    GlobalVariableDel("MAA_ShortScore");
-    GlobalVariableDel("MAA_LongProb");
-    GlobalVariableDel("MAA_ShortProb");
+    ObjectDelete(0, DATA_OBJECT_NAME);
 }
 
 //+------------------------------------------------------------------+
@@ -179,14 +176,31 @@ void OnTick()
 //|                                                                  |
 //+------------------------------------------------------------------+
 
-// --- Новая функция: ЗАПИСЫВАЕТ данные в глобальные переменные ---
+// --- Новая функция: ЗАПИСЫВАЕТ данные в скрытый объект ---
 void UpdateDashboard(string debug_log, int long_score, int short_score, double long_prob, double short_prob)
 {
-    GlobalVariableSet("MAA_DebugLog", debug_log);
-    GlobalVariableSet("MAA_LongScore", long_score);
-    GlobalVariableSet("MAA_ShortScore", short_score);
-    GlobalVariableSet("MAA_LongProb", long_prob);
-    GlobalVariableSet("MAA_ShortProb", short_prob);
+
+    string final_text = "-- Анализ Сигналов --\n";
+    final_text += debug_log;
+    final_text += "--------------------------------\n";
+    final_text += StringFormat("ИТОГО Long/Short: %d / %d\n", long_score, short_score);
+    final_text += StringFormat("Вероятность Long: %.0f%%\n", long_prob);
+    final_text += StringFormat("Вероятность Short: %.0f%%", short_prob);
+
+    // Проверяем, существует ли наш "почтовый ящик"
+    if(ObjectFind(0, DATA_OBJECT_NAME) != 0)
+    {
+        // Если нет, создаем его. Делаем его невидимым.
+        ObjectCreate(0, DATA_OBJECT_NAME, OBJ_EDIT, 0, 0, 0);
+        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_COLOR, clrNONE);
+        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_BGCOLOR, clrNONE);
+        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_BORDER_COLOR, clrNONE);
+        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_SELECTABLE, false);
+        ObjectSetInteger(0, DATA_OBJECT_NAME, OBJPROP_READONLY, true);
+    }
+
+    // Записываем наш отчет в текстовое свойство объекта
+    ObjectSetString(0, DATA_OBJECT_NAME, OBJPROP_TEXT, final_text);
 }
 
 // --- Функция для D1 Тренда с записью в лог ---
