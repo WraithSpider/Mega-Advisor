@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.44"
+#property version "4.45"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -39,6 +39,13 @@ input int    DojiClusterBars    = 5;    // На скольких свечах и
 input int    DojiClusterMinCount= 3;    // Сколько минимум Доджи должно быть для скопления
 input int    MinGapPips = 20;           // Минимальный размер гэпа в пипсах для сигнала
 
+//--- Входные параметры для EMA Ribbon
+input group "--- Фильтры EMA Ribbon Squeeze ---";
+input int    EmaRibbon_Period_Start = 20;    // Стартовый период для первой EMA в ленте
+input int    EmaRibbon_Period_Step  = 5;     // Шаг для следующей EMA (20, 25, 30...)
+input int    EmaRibbon_Num_EMAs     = 6;     // Количество EMA в ленте
+input int    EmaRibbon_SqueezePips  = 15;    // Макс. ширина ленты в пипсах для сигнала "Сжатие"
+
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
 void CheckD1Trend(int &long_score, int &short_score);
@@ -63,6 +70,7 @@ void CheckPinBarSignal(int &long_score, int &short_score);
 void CheckDojiClusterBreakout(int &long_score, int &short_score);
 void CheckWeekendGap(int &long_score, int &short_score);
 void CheckOBV(int &long_score, int &short_score);
+void CheckEmaRibbonSqueeze(int &long_score, int &short_score);
 double CalculateVWRSI(int period);
 bool IsVolatilityOptimal();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -127,6 +135,7 @@ void OnTick()
     CheckDojiClusterBreakout(long_score, short_score);
     CheckWeekendGap(long_score, short_score);
     CheckOBV(long_score, short_score);
+    CheckEmaRibbonSqueeze(long_score, short_score);
 
    
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
@@ -1727,6 +1736,79 @@ void CheckOBV(int &long_score, int &short_score)
     else
     {
         if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для индикатора OBV.");
+    }
+}
+
+/ --- Функция анализа прорыва из сжатия ленты EMA ---
+void CheckEmaRibbonSqueeze(int &long_score, int &short_score)
+{
+    // Создаем массив для хранения хэндлов и значений всех наших EMA
+    int ema_handles[];
+    double ema_values[];
+    ArrayResize(ema_handles, EmaRibbon_Num_EMAs);
+    ArrayResize(ema_values, EmaRibbon_Num_EMAs);
+
+    // В цикле создаем хэндлы для каждой EMA в нашей ленте
+    for(int i = 0; i < EmaRibbon_Num_EMAs; i++)
+    {
+        int current_period = EmaRibbon_Period_Start + (i * EmaRibbon_Period_Step);
+        ema_handles[i] = iMA(_Symbol, _Period, current_period, 0, MODE_EMA, PRICE_CLOSE);
+        if(ema_handles[i] == INVALID_HANDLE) return; // Если не удалось создать одну из EMA, выходим
+    }
+
+    // В цикле копируем значения для каждой EMA
+    for(int i = 0; i < EmaRibbon_Num_EMAs; i++)
+    {
+        double buffer[];
+        if(CopyBuffer(ema_handles[i], 0, 1, 1, buffer) > 0)
+        {
+            ema_values[i] = buffer[0];
+        }
+        else // Если не удалось скопировать данные, выходим
+        {
+            for(int j=0; j<EmaRibbon_Num_EMAs; j++) IndicatorRelease(ema_handles[j]);
+            return;
+        }
+    }
+    
+    // Освобождаем все хэндлы
+    for(int i=0; i<EmaRibbon_Num_EMAs; i++) IndicatorRelease(ema_handles[i]);
+
+    // Находим максимальное и минимальное значение среди всех EMA
+    double max_ema = ema_values[0];
+    double min_ema = ema_values[0];
+    for(int i = 1; i < EmaRibbon_Num_EMAs; i++)
+    {
+        if(ema_values[i] > max_ema) max_ema = ema_values[i];
+        if(ema_values[i] < min_ema) min_ema = ema_values[i];
+    }
+
+    // --- 1. Определяем, есть ли сейчас "Сжатие" ---
+    double ribbon_width_pips = (max_ema - min_ema) / (_Point * 10);
+    bool isSqueeze = (ribbon_width_pips <= EmaRibbon_SqueezePips);
+
+    // --- 2. Если было сжатие, ищем пробой ---
+    if(isSqueeze)
+    {
+        if(EnableDebugLogs) PrintFormat("EMA Ribbon: Обнаружено сжатие ленты (ширина %.1f пипсов)", ribbon_width_pips);
+        
+        MqlRates rate[];
+        if(CopyRates(_Symbol, _Period, 1, 1, rate) > 0)
+        {
+            double last_close_price = rate[0].close;
+            // Проверяем пробой вверх
+            if(last_close_price > max_ema)
+            {
+                long_score += 4;
+                if(EnableDebugLogs) Print("EMA Ribbon: Пробой вверх из сжатия! (+4 очка)");
+            }
+            // Проверяем пробой вниз
+            if(last_close_price < min_ema)
+            {
+                short_score += 4;
+                if(EnableDebugLogs) Print("EMA Ribbon: Пробой вниз из сжатия! (+4 очка)");
+            }
+        }
     }
 }
 
