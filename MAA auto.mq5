@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.29"
+#property version "4.30"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -40,6 +40,7 @@ void CheckVolumeSpikes(int &long_score, int &short_score);
 void CheckADXCrossover(int &long_score, int &short_score);
 void CheckSupportResistanceSignal(int &long_score, int &short_score);
 void CheckStochastic(int &long_score, int &short_score);
+void CheckBollingerSqueeze(int &long_score, int &short_score);
 
 bool IsVolatilitySufficient();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -93,6 +94,7 @@ void OnTick()
     CheckSupportResistanceSignal(long_score, short_score);
     CheckADXCrossover(long_score, short_score);
     CheckStochastic(long_score, short_score);
+    CheckBollingerSqueeze(long_score, short_score);
     
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
     Print("--- ИТОГОВЫЙ ПОДСЧЕТ ---");
@@ -302,7 +304,7 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         if(price_new_peak > price_old_peak && rsi_new_peak < rsi_old_peak)
         {
             short_score += 5;
-            Print("Divergence - Long  (+5 очков)");
+            Print("Divergence - Long (+5 очков)");
         }
     }
 
@@ -328,7 +330,7 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         if(price_new_trough < price_old_trough && rsi_new_trough > rsi_old_trough)
         {
             long_score += 5;
-            Print("Divergence - Short  (+5 очков)");
+            Print("Divergence - Short (+5 очков)");
         }
     }
 
@@ -470,12 +472,12 @@ void CheckSMACross(int &long_score, int &short_score)
             if (sma50 > sma200)
             {
                 long_score += 3;
-                Print("SMA Cross(50/200): Long (Golden Cross) (+3 очка)");
+                Print("SMA Cross(50/200): Золотой крест. Long (+3 очка)");
             }
             if (sma50 < sma200)
             {
                 short_score += 3;
-                Print("SMA Cross(50/200): Short (Death Cross) (+3 очка)");
+                Print("SMA Cross(50/200): Мертвый крест. Short (+3 очка)");
             }
         }
     }
@@ -504,12 +506,12 @@ void CheckWMATrend(int &long_score, int &short_score)
             if (close_price > wma200)
             {
                 long_score += 3;
-                Print("WMA Trend(200): Цена выше линии (+3 очка)");
+                Print("WMA Trend(200): Цена выше линии. Long (+3 очка)");
             }
             else // Условие "меньше или равно"
             {
                 short_score += 3;
-                Print("WMA Trend(200): Цена ниже линии (+3 очка)");
+                Print("WMA Trend(200): Цена ниже линии. Short (+3 очка)");
             }
         }
         IndicatorRelease(wma200_handle);
@@ -610,12 +612,12 @@ void CheckIchimoku(int &long_score, int &short_score)
                 if(current_price > senkou_span_a && current_price > senkou_span_b)
                 {
                     long_score += 3;
-                    Print("Ichimoku: Цена выше Облака (+3 очка)");
+                    Print("Ichimoku: Цена выше Облака Long (+3 очка)");
                 }
                 if(current_price < senkou_span_a && current_price < senkou_span_b)
                 {
                     short_score += 3;
-                    Print("Ichimoku: Цена ниже Облака (+3 очка)");
+                    Print("Ichimoku: Цена ниже Облака Short (+3 очка)");
                 }
             }
 
@@ -623,12 +625,12 @@ void CheckIchimoku(int &long_score, int &short_score)
             if(tenkan_sen > kijun_sen)
             {
                 long_score += 2;
-                Print("Ichimoku: Tenkan > Kijun (+2 очка)");
+                Print("Ichimoku: Tenkan > Kijun Long (+2 очка)");
             }
             if(tenkan_sen < kijun_sen)
             {
                 short_score += 2;
-                Print("Ichimoku: Tenkan < Kijun (+2 очка)");
+                Print("Ichimoku: Tenkan < Kijun Short (+2 очка)");
             }
             
             // 3. Фильтр Chikou Span (+1 очко)
@@ -639,12 +641,12 @@ void CheckIchimoku(int &long_score, int &short_score)
                 if(chikou_span > past_price)
                 {
                     long_score++;
-                    Print("Ichimoku: Chikou выше цены (+1 очко)");
+                    Print("Ichimoku: Chikou выше цены Long (+1 очко)");
                 }
                 if(chikou_span < past_price)
                 {
                     short_score++;
-                    Print("Ichimoku: Chikou ниже цены (+1 очко)");
+                    Print("Ichimoku: Chikou ниже цены Short (+1 очко)");
                 }
             }
         }
@@ -656,7 +658,7 @@ void CheckIchimoku(int &long_score, int &short_score)
     }
 }
 
-   // --- Функция анализа Сжатия и Прорыва Полос Боллинджера ---
+// --- Функция анализа Сжатия и Прорыва Полос Боллинджера ---
 void CheckBollingerSqueeze(int &long_score, int &short_score)
 {
     // --- Получаем хэндлы на нужные нам индикаторы ---
@@ -712,13 +714,13 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
             if(price_close > bb_upper)
             {
                 long_score += 4; // Сильный сигнал на прорыв волатильности
-                Print("BBands Squeeze(",EnumToString(_Period),"): Обнаружен прорыв вверх из сжатия! Очки Long +4");
+                Print("BBands Squeeze: Обнаружен прорыв вверх из сжатия. Long (+4 очко)");
             }
             // Прорыв вниз
             if(price_close < bb_lower)
             {
                 short_score += 4; // Сильный сигнал на прорыв волатильности
-                Print("BBands Squeeze(",EnumToString(_Period),"): Обнаружен прорыв вниз из сжатия! Очки Short +4");
+                Print("BBands Squeeze: Обнаружен прорыв вниз из сжатия. Short (+4 очко)");
             }
         }
     }
@@ -727,38 +729,38 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
     IndicatorRelease(stddev_handle);
 }
 
-   // --- Функция-фильтр по волатильности ATR ---
-   bool IsVolatilitySufficient()
-   {
-       int atr_handle = iATR(_Symbol, _Period, 14); // Стандартный период ATR - 14
-       if(atr_handle != INVALID_HANDLE)
-       {
-           double atr_buffer[];
-           ArraySetAsSeries(atr_buffer, true);
-           
-           // Копируем значение ATR с последней закрытой свечи
-           if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
-           {
-               double current_atr = atr_buffer[0];
-               IndicatorRelease(atr_handle);
-               
-               // Сравниваем текущий ATR с нашим пороговым значением
-               if(current_atr < MinATR_Value)
-               {
-                   Print("Фильтр ATR: Волатильность слишком низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
-                   return false; // Волатильность недостаточна
-               }
-               else
-               {
-                   return true; // Волатильность достаточна
-               }
-           }
-           IndicatorRelease(atr_handle);
-       }
-       return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
-   }
+// --- Функция-фильтр по волатильности ATR ---
+bool IsVolatilitySufficient()
+{
+    int atr_handle = iATR(_Symbol, _Period, 14); // Стандартный период ATR - 14
+    if(atr_handle != INVALID_HANDLE)
+    {
+        double atr_buffer[];
+        ArraySetAsSeries(atr_buffer, true);
+        
+        // Копируем значение ATR с последней закрытой свечи
+        if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
+        {
+            double current_atr = atr_buffer[0];
+            IndicatorRelease(atr_handle);
+            
+            // Сравниваем текущий ATR с нашим пороговым значением
+            if(current_atr < MinATR_Value)
+            {
+                Print("Фильтр ATR: Волатильность слишком низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
+                return false; // Волатильность недостаточна
+            }
+            else
+            {
+                return true; // Волатильность достаточна
+            }
+        }
+        IndicatorRelease(atr_handle);
+    }
+    return false; // Если не удалось получить ATR, на всякий случай запрещаем торговлю
+}
 
-// --- Функция анализа Стохастического Осциллятора (ДИАГНОСТИЧЕСКАЯ ВЕРСИЯ) ---
+// --- Функция анализа Стохастического Осциллятора ---
 void CheckStochastic(int &long_score, int &short_score)
 {
     int stochastic_handle = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);
@@ -782,21 +784,21 @@ void CheckStochastic(int &long_score, int &short_score)
             if(main_prev <= signal_prev && main_current > signal_current)
             {
                 long_score++;
-                Print("Stochastic Signal: Обнаружено бычье пересечение (+1 очко)");
+                Print("Stochastic Signal: Обнаружено бычье пересечение Long (+1 очко)");
                 if(main_current < 20 && signal_current < 20)
                 {
                     long_score += 3;
-                    Print("Stochastic Signal: Пересечение в зоне перепроданности! (+3 очка)");
+                    Print("Stochastic Signal: Пересечение в зоне перепроданности! Long (+3 очка)");
                 }
             }
             else if(main_prev >= signal_prev && main_current < signal_current)
             {
                 short_score++;
-                Print("Stochastic Signal: Обнаружено медвежье пересечение (+1 очко)");
+                Print("Stochastic Signal: Обнаружено медвежье пересечение Short (+1 очко)");
                 if(main_current > 80 && signal_current > 80)
                 {
                     short_score += 3;
-                    Print("Stochastic Signal: Пересечение в зоне перекупленности! (+3 очка)");
+                    Print("Stochastic Signal: Пересечение в зоне перекупленности! Short (+3 очка)");
                 }
             }
         }
@@ -856,14 +858,14 @@ void CheckVolumeSpikes(int &long_score, int &short_score)
         if(last_close > last_open && last_close > prev_open && last_open < prev_close)
         {
             long_score += 3;
-            Print("Volume Spike: Обнаружено бычье поглощение на всплеске объема! Очки Long +3");
+            Print("Volume Spike: Обнаружено бычье поглощение на всплеске объема. Long (+3 очка)");
         }
         
         // Медвежье поглощение на всплеске объема
         if(last_close < last_open && last_close < prev_open && last_open > prev_close)
         {
             short_score += 3;
-            Print("Volume Spike: Обнаружено медвежье поглощение на всплеске объема! Очки Short +3");
+            Print("Volume Spike: Обнаружено медвежье поглощение на всплеске объема. Short (+3 очка)");
         }
     }
 }
