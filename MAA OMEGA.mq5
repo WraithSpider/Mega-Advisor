@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.41"
+#property version "4.42"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -27,6 +27,7 @@ input int    ADX_TrendStrength     = 25;     // Минимальная сила 
 input int    SR_ProximityPips      = 15;     // Зона приближения к уровням S/R в пипсах
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
 input double MinATR_Value          = 0.00050;// Минимальное значение ATR для торговли
+input double MaxATR_Value          = 0.3;    // Максимальное значение ATR (0 = фильтр выключен)
 
 //--- Входные параметры для свечных паттернов
 input group "--- Фильтры Свечных Паттернов ---";
@@ -59,7 +60,7 @@ void CheckImbalance_Advanced(int &long_score, int &short_score);
 void CheckPinBarSignal(int &long_score, int &short_score);
 void CheckDojiClusterBreakout(int &long_score, int &short_score);
 double CalculateVWRSI(int period);
-bool IsVolatilitySufficient();
+bool IsVolatilityOptimal();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 bool IsTrendStrongADX();
 
@@ -148,7 +149,7 @@ void OnTick()
         {
             // Сообщение выводится из самой функции IsTrendStrongADX
         }
-        else if(!IsVolatilitySufficient())
+        else if(!IsVolatilityOptimal())
         {
             // Сообщение выводится из самой функции IsVolatilitySufficient
         }
@@ -785,38 +786,45 @@ void CheckBollingerSqueeze(int &long_score, int &short_score)
     IndicatorRelease(stddev_handle);
 }
 
-// --- Функция-фильтр по волатильности ATR ---
-bool IsVolatilitySufficient()
+// --- Функция-фильтр: проверяет, находится ли волатильность в оптимальном диапазоне ---
+bool IsVolatilityOptimal()
 {
     int atr_handle = iATR(_Symbol, _Period, 14);
-    if(atr_handle != INVALID_HANDLE)
+    if(atr_handle == INVALID_HANDLE)
     {
-        double atr_buffer[];
-        ArraySetAsSeries(atr_buffer, true);
-        
-        if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
-        {
-            double current_atr = atr_buffer[0];
-            IndicatorRelease(atr_handle);
-            
-            // Сравниваем текущий ATR с нашим пороговым значением
-            if(current_atr < MinATR_Value)
-            {
-                // Используем PrintFormat для правильного вывода чисел
-                if(EnableDebugLogs) PrintFormat("Фильтр ATR: Волатильность низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
-                return false; // Волатильность недостаточна
-            }
-            else
-            {
-                return true; // Волатильность достаточна
-            }
-        }
-        IndicatorRelease(atr_handle);
+        if(EnableDebugLogs) Print("Фильтр: Ошибка получения хэндла ATR.");
+        return false;
     }
-    
-    // Если не удалось получить ATR, на всякий случай запрещаем торговлю
-    if(EnableDebugLogs) Print("Фильтр ATR: Ошибка получения данных ATR.");
-    return false; 
+
+    double atr_buffer[];
+    ArraySetAsSeries(atr_buffer, true);
+
+    if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
+    {
+        double current_atr = atr_buffer[0];
+        IndicatorRelease(atr_handle);
+
+        // Проверка на СЛИШКОМ НИЗКУЮ волатильность
+        if(current_atr < MinATR_Value)
+        {
+            if(EnableDebugLogs) PrintFormat("Фильтр: Волатильность низкая (%.5f < %.5f). Торговля запрещена.", current_atr, MinATR_Value);
+            return false;
+        }
+
+        // Проверка на СЛИШКОМ ВЫСОКУЮ волатильность (работает, только если MaxATR_Value > 0)
+        if(MaxATR_Value > 0 && current_atr > MaxATR_Value)
+        {
+            if(EnableDebugLogs) PrintFormat("Фильтр: Волатильность аномально высокая (%.5f > %.5f). Торговля запрещена.", current_atr, MaxATR_Value);
+            return false;
+        }
+
+        // Если прошли все проверки - волатильность оптимальна
+        return true; 
+    }
+
+    IndicatorRelease(atr_handle);
+    if(EnableDebugLogs) Print("Фильтр: Ошибка копирования данных ATR.");
+    return false;
 }
 
 // --- Функция анализа Стохастического Осциллятора ---
