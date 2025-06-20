@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.33"
+#property version "4.34"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -13,6 +13,7 @@ input int    TakeProfitBufferPips  = 10; // Отступ для Тейк-Про�
 input int    MinBarsBetweenTrades = 4;       // Минимальное кол-во свечей между сделками
 input int    MinProfitPips = 20; // Минимальная дистанция до TP в пипсах, чтобы сделка имела смысл
 input int    TrailingStopPips      = 50;     // Дистанция трейлинг-стопа в пипсах (0 = выключен)
+input double BreakoutTP_ATR_Multiplier = 3.0; // Множитель ATR для тейк-профита на пробое
 
 //--- Входные параметры для сигналов
 input group "--- Пороги Сигналов ---"
@@ -117,99 +118,155 @@ void OnTick()
     }
     
     // Вызываем нашу функцию для отображения на панели
-    // UpdateDashboard(g_debug_log, long_score, short_score, long_probability, short_probability);
+    UpdateDashboard(long_score, short_score, long_probability, short_probability);
     
     string print_report = StringFormat("Анализ %s (%s): Очки Long/Short: %d/%d. Вероятность Long: %.0f%%, Short: %.0f%%.",_Symbol,EnumToString(_Period),long_score,short_score,long_probability,short_probability);
     Print(print_report);
 
-    // --- НАЧАЛО БЛОКА ПРОВЕРОК ПЕРЕД СДЕЛКОЙ ---
-    if(barsSinceLastTrade < MinBarsBetweenTrades)
-    {
-        Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
-    }
-    else if(!IsTrendStrongADX())
-    {
-        // Сообщение выводится из самой функции IsTrendStrongADX
-    }
-    else if(!IsVolatilitySufficient())
-    {
-        // Сообщение выводится из самой функции IsVolatilitySufficient
-    }
-    else if(PositionSelect(_Symbol) == true)
-    {
-        Print("Торговое решение пропущено: по символу %s уже есть открытая позиция.", _Symbol);
-        CheckTrailingStop(); // Если позиция есть, проверяем трейлинг-стоп
-    }
-    else // Если все предварительные фильтры пройдены и позиций нет, приступаем к основной логике
-    {
-        double support=0, resistance=0;
-        if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
+    // --- ТОРГОВЫЙ БЛОК ---
+        if(barsSinceLastTrade < MinBarsBetweenTrades)
         {
-            // --- Если сигнал на ПОКУПКУ (LONG) достаточно сильный ---
-            if (long_probability >= long_score_threshold)
+            Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
+        }
+        else if(!IsTrendStrongADX())
+        {
+            // Сообщение выводится из самой функции IsTrendStrongADX
+        }
+        else if(!IsVolatilitySufficient())
+        {
+            // Сообщение выводится из самой функции IsVolatilitySufficient
+        }
+        else if(PositionSelect(_Symbol))
+        {
+            Print("Торговое решение пропущено: позиция уже есть.");
+            CheckTrailingStop(); // Если позиция есть, проверяем трейлинг-стоп
+        }
+        else // Если все предварительные фильтры пройдены и позиций нет, приступаем к основной логике
+        {
+            double support=0, resistance=0;
+            if(GetNearestSupportResistance(support, resistance)) // Если уровни успешно найдены
             {
-                double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
                 double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                double final_tp = resistance - (TakeProfitBufferPips * 10 * point);
-
-                // Проверка на "пространство для маневра"
-                if((final_tp - price) < (MinProfitPips * 10 * point))
+                
+                // --- ЛОГИКА ДЛЯ СИГНАЛА НА ПОКУПКУ (LONG) ---
+                if (long_probability >= long_score_threshold)
                 {
-                    Print("Long-сделка пропущена: недостаточно пространства до уровня сопротивления.");
-                }
-                else // Если пространство есть, открываем сделку/сделки
-                {
-                    double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
-                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
+                    double price = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+                    double potential_tp_level_rebound = resistance - (TakeProfitBufferPips * 10 * point);
 
-                    Print("Получен сигнал LONG. Открываем %d частичных ордера...", NumberOfTrades);
-                    double stop_loss = support - (StopLossBufferPips * 10 * point);
-                    
-                    for(int i = 0; i < NumberOfTrades; i++)
+                    // --- СЦЕНАРИЙ 1: ВХОД НА "ОТБОЙ" (достаточно места до сопротивления) ---
+                    if((potential_tp_level_rebound - price) >= (MinProfitPips * 10 * point))
                     {
-                        MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                        double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+                        Print("Логика: Вход по сценарию 'Отбой'. Цель у уровня сопротивления.");
+                        double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                        if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
 
-                        r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
-                        r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by MAA";
-                        if(!OrderSend(r,res)) { Print("Ошибка BUY: %d", res.retcode); }
-                        else { Print("BUY #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                        double stop_loss = support - (StopLossBufferPips * 10 * point);
+                        double final_tp = potential_tp_level_rebound;
+
+                        for(int i = 0; i < NumberOfTrades; i++)
+                        {
+                            MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                            double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+                            r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
+                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by Rebound";
+                            if(!OrderSend(r,res)) Print("Ошибка BUY Rebound: %d", res.retcode); else { Print("BUY Rebound #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                        }
+                    }
+                    // --- СЦЕНАРИЙ 2: ВХОД НА "ПРОБОЙ" (цена уже выше сопротивления) ---
+                    else if (price > resistance + (SR_ProximityPips * 10 * point))
+                    {
+                        Print("Логика: Вход по сценарию 'Пробой'. Цель по ATR.");
+                        double atr_value = iATR(_Symbol, _Period, 14, 1);
+                        if(atr_value > 0)
+                        {
+                            double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                            if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
+
+                            double stop_loss = resistance - (StopLossBufferPips * 10 * point);
+                            double final_tp = price + (atr_value * BreakoutTP_ATR_Multiplier);
+
+                            for(int i = 0; i < NumberOfTrades; i++)
+                            {
+                               MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                               double take_profit = (i == 0 && NumberOfTrades > 1) ? (price + (final_tp - price) * FirstTargetRatio) : final_tp;
+                               r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
+                               r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long by Breakout";
+                               if(!OrderSend(r,res)) Print("Ошибка BUY Breakout: %d", res.retcode); else { Print("BUY Breakout #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Print("Long-сделка пропущена: цена слишком близко к сопротивлению, но пробоя еще нет.");
                     }
                 }
-            }
-            // --- Если сигнал на ПРОДАЖУ (SHORT) достаточно сильный ---
-            else if (short_probability >= short_score_threshold)
-            {
-                double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
-                double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
-                double final_tp = support + (TakeProfitBufferPips * 10 * point);
-
-                // Проверка на "пространство для маневра"
-                if((price - final_tp) < (MinProfitPips * 10 * point))
+                
+                // --- ЛОГИКА ДЛЯ СИГНАЛА НА ПРОДАЖУ (SHORT) ---
+                else if (short_probability >= short_score_threshold)
                 {
-                    Print("Short-сделка пропущена: недостаточно пространства до уровня поддержки.");
-                }
-                else // Если пространство есть, открываем сделку/сделки
-                {
-                    double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
-                    if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
-
-                    Print("Получен сигнал SHORT. Открываем %d частичных ордера...", NumberOfTrades);
-                    double stop_loss = resistance + (StopLossBufferPips * 10 * point);
+                    double price = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+                    double point = SymbolInfoDouble(_Symbol, SYMBOL_POINT);
                     
-                    for(int i = 0; i < NumberOfTrades; i++)
+                    // --- СЦЕНАРИЙ 1: Проверяем возможность входа на "ОТБОЙ" ---
+                    double potential_tp_level_rebound = support + (TakeProfitBufferPips * 10 * point);
+                    if((price - potential_tp_level_rebound) >= (MinProfitPips * 10 * point))
                     {
-                       MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
-                       double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
-                       r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
-                       r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
-                       if(!OrderSend(r,res)) { Print("Ошибка SELL: %d", res.retcode); }
-                       else { Print("SELL #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                        Print("Логика: Вход по сценарию 'Отбой'. Цель у уровня поддержки.");
+                        double partial_lot = NormalizeDouble(LotSize / NumberOfTrades, 2);
+                        if(partial_lot < SymbolInfoDouble(_Symbol, SYMBOL_VOLUME_MIN)){ Print("Ошибка: Расчетный лот слишком мал."); return; }
+
+                        Print("Получен сигнал SHORT. Открываем %d частичных ордера...", NumberOfTrades);
+                        double stop_loss = resistance + (StopLossBufferPips * 10 * point);
+                        double final_tp = potential_tp_level_rebound;
+
+                        for(int i = 0; i < NumberOfTrades; i++)
+                        {
+                           MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                           double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
+                           
+                           r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
+                           r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by Rebound";
+                           if(!OrderSend(r,res)) { Print("Ошибка SELL Rebound: %d", res.retcode); }
+                           else { Print("SELL Rebound #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                        }
+                    }
+                        // --- СЦЕНАРИЙ 2: ВХОД НА "ПРОБОЙ" ---
+                        else if (price > resistance + (SR_ProximityPips * 10 * point))
+                        {
+                            Print("Логика: Вход по сценарию 'Пробой'. Цель по ATR.");
+                            // --- ПРАВИЛЬНОЕ ПОЛУЧЕНИЕ ЗНАЧЕНИЯ ATR ---
+                            int atr_handle = iATR(_Symbol, _Period, 14);
+                            if(atr_handle != INVALID_HANDLE)
+                            {
+                                double atr_buffer[];
+                                ArraySetAsSeries(atr_buffer, true);
+                                if(CopyBuffer(atr_handle, 0, 1, 1, atr_buffer) > 0)
+                                {
+                                    double atr_value = atr_buffer[0];
+                                    double stop_loss = resistance - (StopLossBufferPips * 10 * point);
+                                    double take_profit = price + (atr_value * BreakoutTP_ATR_Multiplier);
+
+                            for(int i = 0; i < NumberOfTrades; i++)
+                            {
+                               MqlTradeRequest r; MqlTradeResult res; ZeroMemory(r); ZeroMemory(res);
+                               double take_profit = (i == 0 && NumberOfTrades > 1) ? (price - (price - final_tp) * FirstTargetRatio) : final_tp;
+                               
+                               r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
+                               r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by Breakout";
+                               if(!OrderSend(r,res)) { Print("Ошибка SELL Breakout: %d", res.retcode); }
+                               else { Print("SELL Breakout #%d отправлен.", i+1); barsSinceLastTrade = 0; }
+                            }
+                        }
+                    }
+                    else
+                    {
+                        Print("Short-сделка пропущена: цена слишком близко к поддержке, но пробоя еще нет.");
                     }
                 }
             }
         }
-    }
+   }
 }
 
 //+------------------------------------------------------------------+
