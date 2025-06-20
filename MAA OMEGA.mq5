@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.42"
+#property version "4.44"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -23,7 +23,7 @@ input int short_score_threshold = 80;     // Порог в % для сигнал
 
 //--- Входные параметры для фильтров
 input group "--- Фильтры ---"
-input int    MaxSpreadPips       = 5;      // Максимально допустимый спред для торговли в пипсах (0 = выключен)
+input int    MaxSpreadPips       = 5;        // Максимально допустимый спред для торговли в пипсах (0 = выключен)
 input int    ADX_TrendStrength     = 25;     // Минимальная сила тренда по ADX
 input int    SR_ProximityPips      = 15;     // Зона приближения к уровням S/R в пипсах
 input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
@@ -32,12 +32,12 @@ input double MaxATR_Value          = 0.3;    // Максимальное зна�
 
 //--- Входные параметры для свечных паттернов
 input group "--- Фильтры Свечных Паттернов ---";
-input double PinBarMaxBodyRatio = 0.33; // Макс. размер тела относительно свечи (1/3)
-input double PinBarMinWickRatio = 0.60; // Мин. размер главной тени относительно свечи
+input double PinBarMaxBodyRatio = 0.33; // PinBar Макс. размер тела относительно свечи (1/3)
+input double PinBarMinWickRatio = 0.60; // PinBar Мин. размер главной тени относительно свечи
 input double DojiMaxBodyRatio   = 0.15; // Макс. размер тела для Доджи (15% от свечи)
 input int    DojiClusterBars    = 5;    // На скольких свечах ищем скопление
 input int    DojiClusterMinCount= 3;    // Сколько минимум Доджи должно быть для скопления
-input int    MinGapPips = 20; // Минимальный размер гэпа в пипсах для сигнала
+input int    MinGapPips = 20;           // Минимальный размер гэпа в пипсах для сигнала
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -62,6 +62,7 @@ void CheckImbalance_Advanced(int &long_score, int &short_score);
 void CheckPinBarSignal(int &long_score, int &short_score);
 void CheckDojiClusterBreakout(int &long_score, int &short_score);
 void CheckWeekendGap(int &long_score, int &short_score);
+void CheckOBV(int &long_score, int &short_score);
 double CalculateVWRSI(int period);
 bool IsVolatilityOptimal();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
@@ -125,6 +126,7 @@ void OnTick()
     CheckImbalance_Advanced(long_score, short_score);
     CheckDojiClusterBreakout(long_score, short_score);
     CheckWeekendGap(long_score, short_score);
+    CheckOBV(long_score, short_score);
 
    
     //--- ШАГ 2: ФИНАЛЬНЫЙ ПОДСЧЕТ И ТОРГОВЛЯ ---
@@ -149,17 +151,17 @@ void OnTick()
         {
             if(EnableDebugLogs) Print("Торговля пропущена: активен cooldown-период (%d < %d свечей).", barsSinceLastTrade, MinBarsBetweenTrades);
         }
-        else if(!IsTrendStrongADX())
+        else if(!IsTrendStrongADX())  //  ФИЛЬТР СИЛЫ ТРЕНДА
         {
             // Сообщение выводится из самой функции IsTrendStrongADX
         }
-        else if(!IsVolatilityOptimal())
+        else if(!IsVolatilityOptimal()) //  ФИЛЬТР ВОЛАТИЛЬНОСТИ
         {
-        
+            // Сообщение выводится из самой функции IsVolatilityOptimal
         }
-        else if(!IsSpreadAcceptable()) // << НАШ НОВЫЙ ФИЛЬТР СРЕДА
+        else if(!IsSpreadAcceptable()) //  ФИЛЬТР СРЕДА
         {
-            // Сообщение выводится из самой функции IsVolatilitySufficient
+            // Сообщение выводится из самой функции IsSpreadAcceptable
         }
         else if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
         {
@@ -1686,6 +1688,46 @@ bool IsSpreadAcceptable()
     }
     
     return true;
+}
+
+// --- Функция анализа тренда индикатора On Balance Volume (OBV) ---
+void CheckOBV(int &long_score, int &short_score)
+{
+    // Период, с которым будем сравнивать текущее значение
+    int obv_lookback_period = 10;
+    
+    int obv_handle = iOBV(_Symbol, _Period, VOLUME_TICK);
+    if(obv_handle != INVALID_HANDLE)
+    {
+        // Нам нужны данные с двух точек: последней закрытой свечи и N свечей назад
+        double obv_buffer[];
+        ArraySetAsSeries(obv_buffer, true);
+        
+        // Копируем 2 значения со смещением: [0] = бар #1, [1] = бар #11
+        if(CopyBuffer(obv_handle, 0, 1, 1, obv_buffer) > 0 &&
+           CopyBuffer(obv_handle, 0, 1 + obv_lookback_period, 1, obv_buffer) > 0)
+        {
+            double obv_current = obv_buffer[0];
+            double obv_past = obv_buffer[1];
+
+            // Сравниваем текущее значение с прошлым
+            if(obv_current > obv_past)
+            {
+                long_score += 2;
+                if(EnableDebugLogs) Print("OBV: Тренд индикатора восходящий (+2 очка)");
+            }
+            if(obv_current < obv_past)
+            {
+                short_score += 2;
+                if(EnableDebugLogs) Print("OBV: Тренд индикатора нисходящий (+2 очка)");
+            }
+        }
+        IndicatorRelease(obv_handle);
+    }
+    else
+    {
+        if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для индикатора OBV.");
+    }
 }
 
 // --- Функция для обновления панели на графике ---
