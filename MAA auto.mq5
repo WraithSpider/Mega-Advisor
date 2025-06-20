@@ -329,75 +329,63 @@ void CheckFractalDivergence(int &long_score, int &short_score)
     IndicatorRelease(fractals_handle);
 }
 
-
-// --- Функция углубленного анализа MACD ---
-// --- Функция углубленного анализа MACD ---
+// --- Функция углубленного анализа MACD (ДИАГНОСТИЧЕСКАЯ ВЕРСИЯ) ---
 void CheckDeepMACD(int &long_score, int &short_score)
 {
+    Print("--- Запуск CheckDeepMACD ---"); // ТРАССЕР 1: Проверяем, что функция вообще вызывается
+
     int macd_handle = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);
+
     if(macd_handle != INVALID_HANDLE)
     {
+        Print("MACD: Хэндл успешно создан."); // ТРАССЕР 2: Проверяем создание хэндла
+
         double macd_main_buffer[], macd_signal_buffer[], macd_histogram_buffer[];
         int data_to_copy = 3; 
         ArraySetAsSeries(macd_main_buffer, true);
         ArraySetAsSeries(macd_signal_buffer, true);
         ArraySetAsSeries(macd_histogram_buffer, true);
         
-        if(CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer) > 0 &&
-           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0 &&
-           CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer) > 0)
+        // Копируем данные в переменные, чтобы проверить результат
+        int copied_main = CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer);
+        int copied_signal = CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer);
+        int copied_hist = CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer);
+        
+        Print("MACD: Попытка копирования данных. Скопировано Main:%d, Signal:%d, Hist:%d", copied_main, copied_signal, copied_hist); // ТРАССЕР 3
+
+        if(copied_main > 0 && copied_signal > 0 && copied_hist > 0)
         {
+            Print("MACD: Вход в блок анализа сигналов."); // ТРАССЕР 4: Проверяем, что вошли в главный блок
+            
             double main_current = macd_main_buffer[1];
             double main_prev = macd_main_buffer[2];
-            // *** ИСПРАВЛЕНИЕ ОПЕЧАТКИ ***
             double signal_current = macd_signal_buffer[1];
             double signal_prev = macd_signal_buffer[2];
             double hist_current = macd_histogram_buffer[1];
             double hist_prev = macd_histogram_buffer[2];
 
-            // --- 1. Анализ ПЕРЕСЕЧЕНИЯ (+3 очка) ---
-            if(main_prev <= signal_prev && main_current > signal_current)
-            {
-                long_score += 3;
-                Print("MACD Crossover: Long (+3 очка)");
-            }
-            if(main_prev >= signal_prev && main_current < signal_current)
-            {
-                short_score += 3;
-                Print("MACD Crossover: Short (+3 очка)");
-            }
+            if(main_prev <= signal_prev && main_current > signal_current) { long_score += 3; Print("MACD Crossover: Long (+3 очка)"); }
+            if(main_prev >= signal_prev && main_current < signal_current) { short_score += 3; Print("MACD Crossover: Short (+3 очка)"); }
     
-            // --- 2. Анализ СОСТОЯНИЯ (+1 очко) ---
-            if(main_current > signal_current)
-            {
-                long_score++;
-                Print("MACD State: Long (+1 очко)");
-            }
-            if(main_current < signal_current)
-            {
-                short_score++;
-                Print("MACD State: Short (+1 очко)");
-            }
+            if(main_current > signal_current) { long_score++; Print("MACD State: Long (+1 очко)"); }
+            if(main_current < signal_current) { short_score++; Print("MACD State: Short (+1 очко)"); }
     
-            // --- 3. Анализ ИМПУЛЬСА ГИСТОГРАММЫ (+1 очко) ---
-            if(hist_current > hist_prev)
-            {
-                long_score++;
-                Print("MACD Histogram: Long (+1 очко)");
-            }
-            if(hist_current < hist_prev)
-            {
-                short_score++;
-                Print("MACD Histogram: Short (+1 очко)");
-            }
+            if(hist_current > hist_prev) { long_score++; Print("MACD Histogram: Long (+1 очко)"); }
+            if(hist_current < hist_prev) { short_score++; Print("MACD Histogram: Short (+1 очко)"); }
         }
+        else
+        {
+            Print("MACD: Данных для анализа недостаточно."); // Это сообщение должно было появляться раньше
+        }
+        
         IndicatorRelease(macd_handle);
     }
     else
     {
-        Print("Ошибка: не удалось создать хэндл для индикатора MACD.");
+        Print("MACD: КРИТИЧЕСКАЯ ОШИБКА! Не удалось создать хэндл для индикатора MACD.");
     }
 }
+
 
 // --- Функция для пересечения EMA(12,26) ---
 void CheckEMACross(int &long_score, int &short_score){
