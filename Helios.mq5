@@ -5,16 +5,16 @@
 #property version "4.50"
 
 //--- Входные параметры для торговли
-input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
-input double LotSize               = 0.01;   // ОБЩИЙ размер лота для сделки
-input int    StopLossBufferPips    = 15; // Отступ для Стоп-Лосса от уровня в пипсах
-input int    TakeProfitBufferPips  = 10; // Отступ для Тейк-Профита от уровня в пипсах
-input int    MinBarsBetweenTrades = 4;       // Минимальное кол-во свечей между сделками
-input int    MinProfitPips = 20; // Минимальная дистанция до TP в пипсах, чтобы сделка имела смысл
-input int    TrailingStopPips      = 50;     // Дистанция трейлинг-стопа в пипсах (0 = выключен)
+input int    NumberOfTrades        = 1;       // На сколько частей делить сделку (1 = обычная сделка)
+input double LotSize               = 0.01;    // ОБЩИЙ размер лота для сделки
+input int    StopLossBufferPips    = 15;      // Отступ для Стоп-Лосса от уровня в пипсах
+input int    TakeProfitBufferPips  = 10;      // Отступ для Тейк-Профита от уровня в пипсах
+input int    MinBarsBetweenTrades  = 4;       // Минимальное кол-во свечей между сделками
+input int    MinProfitPips         = 20;      // Минимальная дистанция до TP в пипсах, чтобы сделка имела смысл
+input int    TrailingStopPips      = 50;      // Дистанция трейлинг-стопа в пипсах (0 = выключен)
 input double BreakoutTP_ATR_Multiplier = 3.0; // Множитель ATR для тейк-профита на пробое
-input bool   EnableDebugLogs = false; // Включить подробное логирование? (сильно замедляет тесты)
-input bool   AllowMultipleTrades = false; // Разрешить новую серию ордеров?
+input bool   EnableDebugLogs       = false;   // Включить подробное логирование? (сильно замедляет тесты)
+input bool   AllowMultipleTrades = false;     // Разрешить новую серию ордеров?
 
 //--- Входные параметры для сигналов
 input group "--- Пороги Сигналов ---"
