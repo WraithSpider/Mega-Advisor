@@ -2,7 +2,7 @@
 //|                                                          MAA.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.45"
+#property version "4.46"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -1699,7 +1699,8 @@ bool IsSpreadAcceptable()
     return true;
 }
 
-// --- Функция анализа тренда индикатора On Balance Volume (OBV) ---
+
+// --- Функция анализа тренда индикатора On Balance Volume (OBV) (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
 void CheckOBV(int &long_score, int &short_score)
 {
     // Период, с которым будем сравнивать текущее значение
@@ -1708,16 +1709,16 @@ void CheckOBV(int &long_score, int &short_score)
     int obv_handle = iOBV(_Symbol, _Period, VOLUME_TICK);
     if(obv_handle != INVALID_HANDLE)
     {
-        // Нам нужны данные с двух точек: последней закрытой свечи и N свечей назад
-        double obv_buffer[];
-        ArraySetAsSeries(obv_buffer, true);
+        // Создаем ДВА отдельных буфера
+        double current_obv_buffer[1];
+        double past_obv_buffer[1];
         
-        // Копируем 2 значения со смещением: [0] = бар #1, [1] = бар #11
-        if(CopyBuffer(obv_handle, 0, 1, 1, obv_buffer) > 0 &&
-           CopyBuffer(obv_handle, 0, 1 + obv_lookback_period, 1, obv_buffer) > 0)
+        // Копируем данные в разные буферы
+        if(CopyBuffer(obv_handle, 0, 1, 1, current_obv_buffer) > 0 &&
+           CopyBuffer(obv_handle, 0, 1 + obv_lookback_period, 1, past_obv_buffer) > 0)
         {
-            double obv_current = obv_buffer[0];
-            double obv_past = obv_buffer[1];
+            double obv_current = current_obv_buffer[0];
+            double obv_past = past_obv_buffer[0];
 
             // Сравниваем текущее значение с прошлым
             if(obv_current > obv_past)
@@ -1731,6 +1732,10 @@ void CheckOBV(int &long_score, int &short_score)
                 if(EnableDebugLogs) Print("OBV: Тренд индикатора нисходящий (+2 очка)");
             }
         }
+        else
+        {
+            if(EnableDebugLogs) Print("OBV: Недостаточно данных для анализа.");
+        }
         IndicatorRelease(obv_handle);
     }
     else
@@ -1739,7 +1744,7 @@ void CheckOBV(int &long_score, int &short_score)
     }
 }
 
-/ --- Функция анализа прорыва из сжатия ленты EMA ---
+// --- Функция анализа прорыва из сжатия ленты EMA ---
 void CheckEmaRibbonSqueeze(int &long_score, int &short_score)
 {
     // Создаем массив для хранения хэндлов и значений всех наших EMA
