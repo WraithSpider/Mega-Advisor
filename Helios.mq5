@@ -2,7 +2,7 @@
 //|                                                       Helios.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.51"
+#property version "4.52"
 
 //--- 1. Группа: Настройки Торговли и Позиции
 input group "Настройки Торговли и Позиции";
@@ -16,7 +16,6 @@ input int    TrailingStopPips      = 50;     // Дистанция трейли�
 input group "Настройки SL/TP";
 input int    StopLossBufferPips      = 15; // Отступ для Стоп-Лосса от уровня S/R
 input int    TakeProfitBufferPips    = 10; // Отступ для Тейк-Профита от уровня S/R
-input double FirstTargetRatio        = 0.5;    // Коэффициент для первого Тейк-Профита при делении сделки
 input double BreakoutTP_ATR_Multiplier = 3.0;    // Множитель ATR для тейк-профита на пробое
 input int    MinProfitPips           = 20;     // Мин. дистанция до TP для входа в сделку "на отбой"
 
@@ -55,37 +54,37 @@ input int    EmaRibbon_SqueezePips  = 15;    // Макс. ширина лент�
 
 //--- Группа: Веса (Очки) для Сигналов ---
 input group "Веса (Очки) для Сигналов";
-input int Weight_D1_Trend          = 3; // Тренд на D1 (цена vs EMA 50) +
-input int Weight_RSI_Exit          = 2; // RSI: Выход из зон 30/70 +
-input int Weight_RSI_Zone          = 1; // RSI: Положение относительно уровня 50 +
-input int Weight_Divergence        = 5; // RSI: Классическая дивергенция по фракталам +
-input int Weight_MACD_Cross        = 3; // MACD: Пересечение главной и сигнальной линий +
-input int Weight_MACD_State        = 1; // MACD: Состояние (главная выше/ниже сигнальной) +
-input int Weight_MACD_Histo        = 1; // MACD: Рост/падение гистограммы (импульс) +
-input int Weight_EMA_Cross         = 2; // Пересечение быстрых EMA (12/26) +
-input int Weight_SMA_Cross         = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест) +
-input int Weight_WMA_Trend         = 3; // Тренд по WMA(200) (цена выше/ниже) +
-input int Weight_BB_Rebound        = 3; // BBands: Отскок от границы по тренду +
-input int Weight_BB_Squeeze        = 4; // BBands: Пробой из "сжатия" волатильности +
-input int Weight_Ichi_Cloud        = 3; // Ichimoku: Положение цены относительно Облака +
-input int Weight_Ichi_TK_Cross     = 2; // Ichimoku: Пересечение линий Tenkan/Kijun +
-input int Weight_Ichi_Chikou       = 1; // Ichimoku: Фильтр по линии Chikou +
-input int Weight_Stoch_Cross_Zone  = 3; // Stochastic: Пересечение в экстремальной зоне (20/80) +
-input int Weight_Stoch_Cross       = 1; // Stochastic: Обычное пересечение в любом месте +
-input int Weight_Fibo_Rebound      = 4; // Fibonacci: Отскок от уровня отката 61.8% +
-input int Weight_Imbalance_Magnet  = 2; // Вес за наличие незаполненного имбаланса ("магнит") +
-input int Weight_Imbalance_Test    = 2; // Дополнительный вес за тест этого имбаланса +
-input int Weight_Volume_Spike      = 3; // Volume: Свеча поглощения на всплеске объема +
-input int Weight_ADX_Cross         = 2; // ADX: Пересечение линий +DI / -DI +
-input int Weight_VWAP              = 2; // VWAP: Положение цены относительно дневного VWAP +
-input int Weight_PinBar            = 4; // Паттерн: Пин-бар на уровне поддержки/сопротивления +
-input int Weight_Doji_Breakout     = 4; // Паттерн: Пробой из скопления Доджи +
-input int Weight_SR_Bounce         = 3; // S/R: Тест ценой ближайшего уровня поддержки/сопротивления +
-input int Weight_OBV_Trend         = 2; // OBV: Тренд индикатора On Balance Volume +
+input int Weight_D1_Trend          = 3; // Тренд на D1 (цена vs EMA 50) 
+input int Weight_RSI_Exit          = 2; // RSI: Выход из зон 30/70 
+input int Weight_RSI_Zone          = 1; // RSI: Положение относительно уровня 50 
+input int Weight_Divergence        = 5; // RSI: Классическая дивергенция по фракталам 
+input int Weight_MACD_Cross        = 3; // MACD: Пересечение главной и сигнальной линий 
+input int Weight_MACD_State        = 1; // MACD: Состояние (главная выше/ниже сигнальной) 
+input int Weight_MACD_Histo        = 1; // MACD: Рост/падение гистограммы (импульс) 
+input int Weight_EMA_Cross         = 2; // Пересечение быстрых EMA (12/26) 
+input int Weight_SMA_Cross         = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест) 
+input int Weight_WMA_Trend         = 3; // Тренд по WMA(200) (цена выше/ниже) 
+input int Weight_BB_Rebound        = 3; // BBands: Отскок от границы по тренду 
+input int Weight_BB_Squeeze        = 4; // BBands: Пробой из "сжатия" волатильности 
+input int Weight_Ichi_Cloud        = 3; // Ichimoku: Положение цены относительно Облака 
+input int Weight_Ichi_TK_Cross     = 2; // Ichimoku: Пересечение линий Tenkan/Kijun 
+input int Weight_Ichi_Chikou       = 1; // Ichimoku: Фильтр по линии Chikou 
+input int Weight_Stoch_Cross_Zone  = 3; // Stochastic: Пересечение в экстремальной зоне (20/80) 
+input int Weight_Stoch_Cross       = 1; // Stochastic: Обычное пересечение в любом месте 
+input int Weight_Fibo_Rebound      = 4; // Fibonacci: Отскок от уровня отката 61.8% 
+input int Weight_Imbalance_Magnet  = 2; // Вес за наличие незаполненного имбаланса ("магнит") 
+input int Weight_Imbalance_Test    = 2; // Дополнительный вес за тест этого имбаланса 
+input int Weight_Volume_Spike      = 3; // Volume: Свеча поглощения на всплеске объема 
+input int Weight_ADX_Cross         = 2; // ADX: Пересечение линий +DI / -DI 
+input int Weight_VWAP              = 2; // VWAP: Положение цены относительно дневного VWAP 
+input int Weight_PinBar            = 4; // Паттерн: Пин-бар на уровне поддержки/сопротивления 
+input int Weight_Doji_Breakout     = 4; // Паттерн: Пробой из скопления Доджи 
+input int Weight_SR_Bounce         = 3; // S/R: Тест ценой ближайшего уровня поддержки/сопротивления 
+input int Weight_OBV_Trend         = 2; // OBV: Тренд индикатора On Balance Volume 
 input int Weight_EmaRibbon_Squeeze = 4; // EMA Ribbon: Пробой из сжатия ленты EMA
-input int Weight_VWRSI_Zone        = 1; // Вес для нахождения VW-RSI в бычьей/медвежьей зоне (>50 или <50) +
-input int Weight_VWRSI_ExtremeZone = 2; // Вес для нахождения VW-RSI в экстремальной зоне (30/70) +
-input int Weight_Weekend_Gap       = 4; // Вес для сигнала: Гэп выходного дня +
+input int Weight_VWRSI_Zone        = 1; // Вес для нахождения VW-RSI в бычьей/медвежьей зоне (>50 или <50) 
+input int Weight_VWRSI_ExtremeZone = 2; // Вес для нахождения VW-RSI в экстремальной зоне (30/70) 
+input int Weight_Weekend_Gap       = 4; // Вес для сигнала: Гэп выходного дня 
 
 
 //--- Прототипы функций ---
