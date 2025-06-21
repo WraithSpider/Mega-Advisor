@@ -73,6 +73,8 @@ input int Weight_VWAP              = 2;
 input int Weight_PinBar            = 4;
 input int Weight_Doji_Breakout     = 4;
 input int Weight_SR_Bounce         = 3;
+input int Weight_OBV_Trend         = 2; // Вес для сигнала: Тренд индикатора OBV
+input int Weight_EmaRibbon_Squeeze = 4; // Вес для сигнала: Пробой из сжатия ленты EMA
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
