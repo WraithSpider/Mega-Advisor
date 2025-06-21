@@ -49,32 +49,35 @@ input int    EmaRibbon_SqueezePips  = 15;    // Макс. ширина лент�
 //--- Группа: Веса (Очки) для Сигналов ---
 input group "--- Веса (Очки) для Сигналов ---";
 input int Weight_D1_Trend         = 3; // Тренд на D1 (цена vs EMA 50) +
-input int Weight_RSI_Exit         = 2; // RSI: Выход из зон 30/70
-input int Weight_RSI_Zone         = 1; // RSI: Положение относительно уровня 50
-input int Weight_Divergence       = 5; // RSI: Классическая дивергенция по фракталам
+input int Weight_RSI_Exit         = 2; // RSI: Выход из зон 30/70 +
+input int Weight_RSI_Zone         = 1; // RSI: Положение относительно уровня 50 +
+input int Weight_Divergence       = 5; // RSI: Классическая дивергенция по фракталам +
 input int Weight_MACD_Cross       = 3; // MACD: Пересечение главной и сигнальной линий +
 input int Weight_MACD_State       = 1; // MACD: Состояние (главная выше/ниже сигнальной) +
 input int Weight_MACD_Histo       = 1; // MACD: Рост/падение гистограммы (импульс) +
-input int Weight_EMA_Cross        = 2; // Пересечение быстрых EMA (12/26)
-input int Weight_SMA_Cross        = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест)
-input int Weight_WMA_Trend        = 3; // Тренд по WMA(200) (цена выше/ниже)
-input int Weight_BB_Rebound       = 3; // BBands: Отскок от границы по тренду
-input int Weight_BB_Squeeze       = 4; // BBands: Пробой из "сжатия" волатильности
-input int Weight_Ichi_Cloud       = 3; // Ichimoku: Положение цены относительно Облака
-input int Weight_Ichi_TK_Cross    = 2; // Ichimoku: Пересечение линий Tenkan/Kijun
-input int Weight_Ichi_Chikou      = 1; // Ichimoku: Фильтр по линии Chikou
-input int Weight_Stoch_Cross_Zone = 3; // Stochastic: Пересечение в экстремальной зоне (20/80)
-input int Weight_Stoch_Cross      = 1; // Stochastic: Обычное пересечение в любом месте
-input int Weight_Fibo_Rebound     = 4; // Fibonacci: Отскок от уровня отката 61.8%
-input int Weight_Imbalance        = 3; // Imbalance/FVG: Тест ценой зоны имбаланса
-input int Weight_Volume_Spike     = 3; // Volume: Свеча поглощения на всплеске объема
-input int Weight_ADX_Cross        = 2; // ADX: Пересечение линий +DI / -DI
-input int Weight_VWAP             = 2; // VWAP: Положение цены относительно дневного VWAP
-input int Weight_PinBar           = 4; // Паттерн: Пин-бар на уровне поддержки/сопротивления
-input int Weight_Doji_Breakout    = 4; // Паттерн: Пробой из скопления Доджи
-input int Weight_SR_Bounce        = 3; // S/R: Тест ценой ближайшего уровня поддержки/сопротивления
-input int Weight_OBV_Trend        = 2; // OBV: Тренд индикатора On Balance Volume
+input int Weight_EMA_Cross        = 2; // Пересечение быстрых EMA (12/26) +
+input int Weight_SMA_Cross        = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест) +
+input int Weight_WMA_Trend        = 3; // Тренд по WMA(200) (цена выше/ниже) +
+input int Weight_BB_Rebound       = 3; // BBands: Отскок от границы по тренду +
+input int Weight_BB_Squeeze       = 4; // BBands: Пробой из "сжатия" волатильности +
+input int Weight_Ichi_Cloud       = 3; // Ichimoku: Положение цены относительно Облака +
+input int Weight_Ichi_TK_Cross    = 2; // Ichimoku: Пересечение линий Tenkan/Kijun +
+input int Weight_Ichi_Chikou      = 1; // Ichimoku: Фильтр по линии Chikou +
+input int Weight_Stoch_Cross_Zone = 3; // Stochastic: Пересечение в экстремальной зоне (20/80) +
+input int Weight_Stoch_Cross      = 1; // Stochastic: Обычное пересечение в любом месте +
+input int Weight_Fibo_Rebound     = 4; // Fibonacci: Отскок от уровня отката 61.8% +
+input int Weight_Imbalance        = 3; // Imbalance/FVG: Тест ценой зоны имбаланса +
+input int Weight_Volume_Spike     = 3; // Volume: Свеча поглощения на всплеске объема +
+input int Weight_ADX_Cross        = 2; // ADX: Пересечение линий +DI / -DI +
+input int Weight_VWAP             = 2; // VWAP: Положение цены относительно дневного VWAP +
+input int Weight_PinBar           = 4; // Паттерн: Пин-бар на уровне поддержки/сопротивления +
+input int Weight_Doji_Breakout    = 4; // Паттерн: Пробой из скопления Доджи +
+input int Weight_SR_Bounce        = 3; // S/R: Тест ценой ближайшего уровня поддержки/сопротивления +
+input int Weight_OBV_Trend        = 2; // OBV: Тренд индикатора On Balance Volume +
 input int Weight_EmaRibbon_Squeeze= 4; // EMA Ribbon: Пробой из сжатия ленты EMA
+input int Weight_VWRSI_Zone        = 1; // Вес для нахождения VW-RSI в бычьей/медвежьей зоне (>50 или <50) +
+input int Weight_VWRSI_ExtremeZone = 2; // Вес для нахождения VW-RSI в экстремальной зоне (30/70) +
+input int Weight_Weekend_Gap = 4; // Вес для сигнала: Гэп выходного дня +
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
@@ -318,9 +321,12 @@ void CheckD1Trend(int &long_score, int &short_score)
     }
 }
 
-// --- Функция углубленного анализа RSI ---
+// --- Функция углубленного анализа RSI с настраиваемыми весами ---
 void CheckDeepRSI(int &long_score, int &short_score)
 {
+    // Если оба веса равны нулю, не тратим ресурсы на выполнение функции
+    if(Weight_RSI_Exit == 0 && Weight_RSI_Zone == 0) return;
+
     int rsi_handle = iRSI(_Symbol, _Period, 14, PRICE_CLOSE);
     if(rsi_handle != INVALID_HANDLE)
     {
@@ -333,37 +339,39 @@ void CheckDeepRSI(int &long_score, int &short_score)
             double rsi_current = rsi_buffer[1];
             double rsi_prev = rsi_buffer[2];
 
-            // --- 1. Анализ "Возврата из зоны" (+2 очка) ---
+            // --- 1. Анализ "Возврата из зоны" ---
             if(rsi_prev < 30 && rsi_current >= 30) 
             {
                 long_score += Weight_RSI_Exit; 
-                if(EnableDebugLogs) Print("RSI Exit - Long (+2 очка)"); // << ИЗМЕНЕНИЕ
+                if(EnableDebugLogs) Print("RSI Exit: Long (+" + (string)Weight_RSI_Exit + " очков)");
             }
             if(rsi_prev > 70 && rsi_current <= 70) 
             {
                 short_score += Weight_RSI_Exit; 
-                if(EnableDebugLogs) Print("RSI Exit - Short (+2 очка)"); // << ИЗМЕНЕНИЕ
+                if(EnableDebugLogs) Print("RSI Exit: Short (+" + (string)Weight_RSI_Exit + " очков)");
             }
             
-            // --- 2. Анализ "Зоны импульса" (+1 очко) ---
+            // --- 2. Анализ "Зоны импульса" ---
             if(rsi_current > 50) 
             {
-                long_score++;
-                if(EnableDebugLogs) Print("RSI Zone - Long (+1 очко)"); // << ИЗМЕНЕНИЕ
+                long_score += Weight_RSI_Zone;
+                if(EnableDebugLogs) Print("RSI Zone: Long (+" + (string)Weight_RSI_Zone + " очков)");
             }
             if(rsi_current < 50) 
             {
-                short_score++;
-                if(EnableDebugLogs) Print("RSI Zone - Short (+1 очко)"); // << ИЗМЕНЕНИЕ
+                short_score += Weight_RSI_Zone;
+                if(EnableDebugLogs) Print("RSI Zone: Short (+" + (string)Weight_RSI_Zone + " очков)");
             }
         }
         IndicatorRelease(rsi_handle);
     }
 }
 
-// --- Функция для поиска дивергенции RSI по фракталам  ---
+// --- Функция для поиска дивергенции RSI по фракталам ---
 void CheckFractalDivergence(int &long_score, int &short_score)
 {
+    if(Weight_Divergence == 0) return; // Экономим ресурсы, если вес 0
+
     int rsi_handle = iRSI(_Symbol, _Period, 14, PRICE_CLOSE);
     int fractals_handle = iFractals(_Symbol, _Period);
 
@@ -373,7 +381,7 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         return;
     }
 
-    int history_bars = 100;
+    int history_bars = LookbackBars_SR_Div; // Используем наш настраиваемый параметр глубины
     double rsi_buffer[], fractals_up_buffer[], fractals_down_buffer[];
     ArraySetAsSeries(rsi_buffer, true);
     ArraySetAsSeries(fractals_up_buffer, true);
@@ -406,11 +414,10 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         double rsi_new_peak = rsi_buffer[newest_peak_idx];
         double rsi_old_peak = rsi_buffer[older_peak_idx];
 
-        // Классическая медвежья дивергенция: цена делает более высокий максимум, а RSI - более низкий
         if(price_new_peak > price_old_peak && rsi_new_peak < rsi_old_peak)
         {
-            short_score += 5;
-            if(EnableDebugLogs) Print("Divergence - Long (+5 очков)");
+            short_score += Weight_Divergence;
+            if(EnableDebugLogs) Print("Divergence: Медвежья! (+" + (string)Weight_Divergence + " очков Short)");
         }
     }
 
@@ -432,11 +439,10 @@ void CheckFractalDivergence(int &long_score, int &short_score)
         double rsi_new_trough = rsi_buffer[newest_trough_idx];
         double rsi_old_trough = rsi_buffer[older_trough_idx];
         
-        // Классическая бычья дивергенция: цена делает более низкий минимум, а RSI - более высокий
         if(price_new_trough < price_old_trough && rsi_new_trough > rsi_old_trough)
         {
-            long_score += 5;
-            if(EnableDebugLogs) Print("Divergence - Short (+5 очков)");
+            long_score += Weight_Divergence;
+            if(EnableDebugLogs) Print("Divergence: Бычья! (+" + (string)Weight_Divergence + " очков Long)");
         }
     }
 
@@ -513,10 +519,11 @@ void CheckDeepMACD(int &long_score, int &short_score)
 // --- Функция для пересечения EMA(12,26) ---
 void CheckEMACross(int &long_score, int &short_score)
 {
+    if(Weight_EMA_Cross == 0) return;
+
     int ema12_handle = iMA(_Symbol, _Period, 12, 0, MODE_EMA, PRICE_CLOSE);
     int ema26_handle = iMA(_Symbol, _Period, 26, 0, MODE_EMA, PRICE_CLOSE);
     
-    // Добавим проверку хэндлов для надежности
     if(ema12_handle != INVALID_HANDLE && ema26_handle != INVALID_HANDLE)
     {
         double ema12_buffer[], ema26_buffer[];
@@ -528,21 +535,19 @@ void CheckEMACross(int &long_score, int &short_score)
             double ema12 = ema12_buffer[0];
             double ema26 = ema26_buffer[0];
             
-            // --- НОВАЯ ЛОГИКА ВЫВОДА В ЖУРНАЛ ---
             if (ema12 > ema26)
             {
-                long_score += 2;
-                if(EnableDebugLogs) Print("EMA Cross(12/26): Long (+2 очка)");
+                long_score += Weight_EMA_Cross;
+                if(EnableDebugLogs) Print("EMA Cross(12/26): Long (+" + (string)Weight_EMA_Cross + " очков)");
             }
             if (ema12 < ema26)
             {
-                short_score += 2;
-                if(EnableDebugLogs) Print("EMA Cross(12/26): Short (+2 очка)");
+                short_score += Weight_EMA_Cross;
+                if(EnableDebugLogs) Print("EMA Cross(12/26): Short (+" + (string)Weight_EMA_Cross + " очков)");
             }
         }
     }
     
-    // Освобождаем оба хэндла в любом случае
     IndicatorRelease(ema12_handle);
     IndicatorRelease(ema26_handle);
 }
@@ -551,6 +556,8 @@ void CheckEMACross(int &long_score, int &short_score)
 // --- Функция для SMA(50,200) "Золотого креста" ---
 void CheckSMACross(int &long_score, int &short_score)
 {
+    if(Weight_SMA_Cross == 0) return;
+
     int sma50_handle = iMA(_Symbol, _Period, 50, 0, MODE_SMA, PRICE_CLOSE);
     int sma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_SMA, PRICE_CLOSE);
 
@@ -565,16 +572,15 @@ void CheckSMACross(int &long_score, int &short_score)
             double sma50 = sma50_buffer[0];
             double sma200 = sma200_buffer[0];
 
-            // --- НОВАЯ ЛОГИКА ВЫВОДА В ЖУРНАЛ ---
             if (sma50 > sma200)
             {
-                long_score += 3;
-                if(EnableDebugLogs) Print("SMA Cross(50/200): Золотой крест. Long (+3 очка)");
+                long_score += Weight_SMA_Cross;
+                if(EnableDebugLogs) Print("SMA Cross(50/200): Golden Cross (+" + (string)Weight_SMA_Cross + " очков)");
             }
             if (sma50 < sma200)
             {
-                short_score += 3;
-                if(EnableDebugLogs) Print("SMA Cross(50/200): Мертвый крест. Short (+3 очка)");
+                short_score += Weight_SMA_Cross;
+                if(EnableDebugLogs) Print("SMA Cross(50/200): Death Cross (+" + (string)Weight_SMA_Cross + " очков)");
             }
         }
     }
@@ -586,29 +592,29 @@ void CheckSMACross(int &long_score, int &short_score)
 // --- Функция для цены относительно WMA(200) ---
 void CheckWMATrend(int &long_score, int &short_score)
 {
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_WMA_Trend == 0) return;
+
     int wma200_handle = iMA(_Symbol, _Period, 200, 0, MODE_LWMA, PRICE_CLOSE);
     if(wma200_handle != INVALID_HANDLE) 
     {
-        double wma200_buffer[]; 
-        ArraySetAsSeries(wma200_buffer, true);
-        MqlRates rates[]; 
-        ArraySetAsSeries(rates, true);
+        double wma200_buffer[]; ArraySetAsSeries(wma200_buffer, true);
+        MqlRates rates[]; ArraySetAsSeries(rates, true);
         
         if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 && CopyBuffer(wma200_handle, 0, 1, 1, wma200_buffer) > 0) 
         {
             double close_price = rates[0].close;
             double wma200 = wma200_buffer[0];
             
-            // --- НОВАЯ ЛОГИКА ВЫВОДА В ЖУРНАЛ ---
             if (close_price > wma200)
             {
-                long_score += 3;
-                if(EnableDebugLogs) Print("WMA Trend(200): Цена выше линии. Long (+3 очка)");
+                long_score += Weight_WMA_Trend;
+                if(EnableDebugLogs) Print("WMA Trend(200): Цена выше линии (+" + (string)Weight_WMA_Trend + " очков)");
             }
             else // Условие "меньше или равно"
             {
-                short_score += 3;
-                if(EnableDebugLogs) Print("WMA Trend(200): Цена ниже линии. Short (+3 очка)");
+                short_score += Weight_WMA_Trend;
+                if(EnableDebugLogs) Print("WMA Trend(200): Цена ниже линии (+" + (string)Weight_WMA_Trend + " очков)");
             }
         }
         IndicatorRelease(wma200_handle);
@@ -616,69 +622,73 @@ void CheckWMATrend(int &long_score, int &short_score)
 }
 
 // --- Функция для "умных" Полос Боллинджера ---
-void CheckSmartBBands(int &long_score, int &short_score){
-     int bb_handle = iBands(_Symbol, _Period, 20, 0, 2.0, PRICE_CLOSE);
-      int sma200_handle_for_bb = iMA(_Symbol, _Period, 200, 0, MODE_SMA, PRICE_CLOSE); // Нам нужен хэндл на SMA 200 для определения тренда
-      
-      if(bb_handle != INVALID_HANDLE && sma200_handle_for_bb != INVALID_HANDLE)
-      {
-          double bb_upper_buffer[], bb_lower_buffer[];
-          double sma200_buffer_for_bb[];
-          MqlRates rates[];
-          
-          ArraySetAsSeries(bb_upper_buffer, true);
-          ArraySetAsSeries(bb_lower_buffer, true);
-          ArraySetAsSeries(sma200_buffer_for_bb, true);
-          ArraySetAsSeries(rates, true);
-          
-          // Копируем все необходимые данные
-          if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 &&
-             CopyBuffer(bb_handle, 1, 1, 1, bb_upper_buffer) > 0 &&      // Верхняя полоса
-             CopyBuffer(bb_handle, 2, 1, 1, bb_lower_buffer) > 0 &&      // Нижняя полоса
-             CopyBuffer(sma200_handle_for_bb, 0, 1, 1, sma200_buffer_for_bb) > 0) // Значение SMA 200
-          {
-              double price_close = rates[0].close;
-              double bb_upper = bb_upper_buffer[0];
-              double bb_lower = bb_lower_buffer[0];
-              double sma200_value = sma200_buffer_for_bb[0];
-      
-              // --- ПРИМЕНЯЕМ НОВУЮ КОНТЕКСТНУЮ ЛОГИКУ ---
-      
-              // Сценарий 1: Глобальный тренд вверх
-              if(price_close > sma200_value)
-              {
-                  // Ищем только покупки на откате к нижней границе
-                  if(price_close <= bb_lower)
-                  {
-                      long_score += 3; // Сильный сигнал по тренду
-                      if(EnableDebugLogs) Print("BBands: покупка на откате в восходящем тренде. Long (+3 очка)");
-                  }
-              }
-              // Сценарий 2: Глобальный тренд вниз
-              else if(price_close < sma200_value)
-              {
-                  // Ищем только продажи на отскоке к верхней границе
-                  if(price_close >= bb_upper)
-                  {
-                      short_score += 3; // Сильный сигнал по тренду
-                      if(EnableDebugLogs) Print("BBands: продажа на отскоке в нисходящем тренде. Short (+3 очка)");
-                  }
-              }
-              // Если цена около SMA 200, мы ничего не делаем
-          }
-          
-          IndicatorRelease(bb_handle);
-          IndicatorRelease(sma200_handle_for_bb);
-      }
-      else
-      {
-          if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для Bollinger Bands или SMA 200.");
-      }
+void CheckSmartBBands(int &long_score, int &short_score)
+{
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_BB_Rebound == 0) return;
+
+    int bb_handle = iBands(_Symbol, _Period, 20, 0, 2.0, PRICE_CLOSE);
+    int sma200_handle_for_bb = iMA(_Symbol, _Period, 200, 0, MODE_SMA, PRICE_CLOSE);
+    
+    if(bb_handle != INVALID_HANDLE && sma200_handle_for_bb != INVALID_HANDLE)
+    {
+        double bb_upper_buffer[], bb_lower_buffer[];
+        double sma200_buffer_for_bb[];
+        MqlRates rates[];
+        
+        ArraySetAsSeries(bb_upper_buffer, true);
+        ArraySetAsSeries(bb_lower_buffer, true);
+        ArraySetAsSeries(sma200_buffer_for_bb, true);
+        ArraySetAsSeries(rates, true);
+        
+        if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 &&
+           CopyBuffer(bb_handle, 1, 1, 1, bb_upper_buffer) > 0 &&
+           CopyBuffer(bb_handle, 2, 1, 1, bb_lower_buffer) > 0 &&
+           CopyBuffer(sma200_handle_for_bb, 0, 1, 1, sma200_buffer_for_bb) > 0)
+        {
+            double price_close = rates[0].close;
+            double bb_upper = bb_upper_buffer[0];
+            double bb_lower = bb_lower_buffer[0];
+            double sma200_value = sma200_buffer_for_bb[0];
+   
+            // Сценарий 1: Глобальный тренд вверх
+            if(price_close > sma200_value)
+            {
+                // Ищем только покупки на откате к нижней границе
+                if(price_close <= bb_lower)
+                {
+                    long_score += Weight_BB_Rebound;
+                    if(EnableDebugLogs) Print("BBands Rebound: Long (+" + (string)Weight_BB_Rebound + " очков)");
+                }
+            }
+            // Сценарий 2: Глобальный тренд вниз
+            else if(price_close < sma200_value)
+            {
+                // Ищем только продажи на отскоке к верхней границе
+                if(price_close >= bb_upper)
+                {
+                    short_score += Weight_BB_Rebound;
+                    if(EnableDebugLogs) Print("BBands Rebound: Short (+" + (string)Weight_BB_Rebound + " очков)");
+                }
+            }
+        }
+        
+        IndicatorRelease(bb_handle);
+        IndicatorRelease(sma200_handle_for_bb);
+    }
+    else
+    {
+        if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для Bollinger Bands или SMA 200.");
+    }
 }
 
-// --- Функция для анализа Облака Ишимоку ---
+
+// --- Функция для анализа Облака Ишимоку с настраиваемыми весами ---
 void CheckIchimoku(int &long_score, int &short_score)
 {
+    // Если все веса для этого индикатора равны 0, не тратим ресурсы
+    if(Weight_Ichi_Cloud == 0 && Weight_Ichi_TK_Cross == 0 && Weight_Ichi_Chikou == 0) return;
+
     int ichimoku_handle = iIchimoku(_Symbol, _Period, 9, 26, 52);
     if(ichimoku_handle != INVALID_HANDLE)
     {
@@ -687,12 +697,11 @@ void CheckIchimoku(int &long_score, int &short_score)
         ArraySetAsSeries(senkou_a_buffer, true); ArraySetAsSeries(senkou_b_buffer, true);
         ArraySetAsSeries(chikou_buffer, true);
         
-        // Копируем все необходимые данные
         if(CopyBuffer(ichimoku_handle, 0, 1, 1, tenkan_buffer) > 0 && 
            CopyBuffer(ichimoku_handle, 1, 1, 1, kijun_buffer) > 0 &&
-           CopyBuffer(ichimoku_handle, 2, 0, 1, senkou_a_buffer) > 0 && // Облако берем для текущей свечи
+           CopyBuffer(ichimoku_handle, 2, 0, 1, senkou_a_buffer) > 0 &&
            CopyBuffer(ichimoku_handle, 3, 0, 1, senkou_b_buffer) > 0 &&
-           CopyBuffer(ichimoku_handle, 4, 26, 1, chikou_buffer) > 0)   // Chikou смещен на 26 баров
+           CopyBuffer(ichimoku_handle, 4, 26, 1, chikou_buffer) > 0)
         {
             double tenkan_sen = tenkan_buffer[0];
             double kijun_sen = kijun_buffer[0];
@@ -705,45 +714,45 @@ void CheckIchimoku(int &long_score, int &short_score)
             {
                 double current_price = current_rates[0].close;
                 
-                // 1. Цена vs Облако (+3 очка)
+                // 1. Цена vs Облако
                 if(current_price > senkou_span_a && current_price > senkou_span_b)
                 {
-                    long_score += 3;
-                    if(EnableDebugLogs) Print("Ichimoku: Цена выше Облака Long (+3 очка)");
+                    long_score += Weight_Ichi_Cloud;
+                    if(EnableDebugLogs) Print("Ichimoku: Цена выше Облака (+" + (string)Weight_Ichi_Cloud + " очков)");
                 }
                 if(current_price < senkou_span_a && current_price < senkou_span_b)
                 {
-                    short_score += 3;
-                    if(EnableDebugLogs) Print("Ichimoku: Цена ниже Облака Short (+3 очка)");
+                    short_score += Weight_Ichi_Cloud;
+                    if(EnableDebugLogs) Print("Ichimoku: Цена ниже Облака (+" + (string)Weight_Ichi_Cloud + " очков)");
                 }
             }
 
-            // 2. Пересечение Tenkan/Kijun (+2 очка)
+            // 2. Пересечение Tenkan/Kijun
             if(tenkan_sen > kijun_sen)
             {
-                long_score += 2;
-                if(EnableDebugLogs) Print("Ichimoku: Tenkan > Kijun Long (+2 очка)");
+                long_score += Weight_Ichi_TK_Cross;
+                if(EnableDebugLogs) Print("Ichimoku: Tenkan > Kijun (+" + (string)Weight_Ichi_TK_Cross + " очков)");
             }
             if(tenkan_sen < kijun_sen)
             {
-                short_score += 2;
-                if(EnableDebugLogs) Print("Ichimoku: Tenkan < Kijun Short (+2 очка)");
+                short_score += Weight_Ichi_TK_Cross;
+                if(EnableDebugLogs) Print("Ichimoku: Tenkan < Kijun (+" + (string)Weight_Ichi_TK_Cross + " очков)");
             }
             
-            // 3. Фильтр Chikou Span (+1 очко)
+            // 3. Фильтр Chikou Span
             MqlRates past_rates[];
             if(CopyRates(_Symbol, _Period, 26, 1, past_rates) > 0)
             {
                 double past_price = past_rates[0].close;
                 if(chikou_span > past_price)
                 {
-                    long_score++;
-                    if(EnableDebugLogs) Print("Ichimoku: Chikou выше цены Long (+1 очко)");
+                    long_score += Weight_Ichi_Chikou;
+                    if(EnableDebugLogs) Print("Ichimoku: Chikou выше цены (+" + (string)Weight_Ichi_Chikou + " очков)");
                 }
                 if(chikou_span < past_price)
                 {
-                    short_score++;
-                    if(EnableDebugLogs) Print("Ichimoku: Chikou ниже цены Short (+1 очко)");
+                    short_score += Weight_Ichi_Chikou;
+                    if(EnableDebugLogs) Print("Ichimoku: Chikou ниже цены (+" + (string)Weight_Ichi_Chikou + " очков)");
                 }
             }
         }
@@ -758,72 +767,63 @@ void CheckIchimoku(int &long_score, int &short_score)
 // --- Функция анализа Сжатия и Прорыва Полос Боллинджера ---
 void CheckBollingerSqueeze(int &long_score, int &short_score)
 {
-    // --- Получаем хэндлы на нужные нам индикаторы ---
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_BB_Squeeze == 0) return;
+
     int bb_handle = iBands(_Symbol, _Period, 20, 0, 2.0, PRICE_CLOSE);
-    int stddev_handle = iStdDev(_Symbol, _Period, 20, 0, MODE_SMA, PRICE_CLOSE); // StdDev с тем же периодом, что и BB
+    int stddev_handle = iStdDev(_Symbol, _Period, 20, 0, MODE_SMA, PRICE_CLOSE);
 
-    if(bb_handle == INVALID_HANDLE || stddev_handle == INVALID_HANDLE)
+    if(bb_handle != INVALID_HANDLE && stddev_handle != INVALID_HANDLE)
     {
-        if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для BB или StdDev.");
-        return;
-    }
-
-    // --- Готовим и копируем данные ---
-    int history_bars_for_squeeze = 75; // Период для поиска самого сильного сжатия
-    double bb_upper_buffer[], bb_lower_buffer[], stddev_buffer[];
-    MqlRates rates[];
-    
-    ArraySetAsSeries(bb_upper_buffer, true);
-    ArraySetAsSeries(bb_lower_buffer, true);
-    ArraySetAsSeries(stddev_buffer, true);
-    ArraySetAsSeries(rates, true);
-    
-    // Копируем данные за весь период поиска сжатия
-    if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 &&
-       CopyBuffer(bb_handle, 1, 1, 1, bb_upper_buffer) > 0 &&
-       CopyBuffer(bb_handle, 2, 1, 1, bb_lower_buffer) > 0 &&
-       CopyBuffer(stddev_handle, 0, 1, history_bars_for_squeeze, stddev_buffer) > 0)
-    {
-        double price_close = rates[0].close;
-        double bb_upper = bb_upper_buffer[0];
-        double bb_lower = bb_lower_buffer[0];
+        int history_bars_for_squeeze = LookbackBars_SR_Div; // Используем общую настройку глубины
+        double bb_upper_buffer[], bb_lower_buffer[], stddev_buffer[];
+        MqlRates rates[];
         
-        // --- 1. Определяем, есть ли сейчас "Сжатие" ---
-        double current_stddev = stddev_buffer[0];
-        double min_stddev = current_stddev;
-
-        // Ищем минимальное значение StdDev за последние N баров
-        for(int i = 1; i < history_bars_for_squeeze; i++)
+        ArraySetAsSeries(bb_upper_buffer, true);
+        ArraySetAsSeries(bb_lower_buffer, true);
+        ArraySetAsSeries(stddev_buffer, true);
+        ArraySetAsSeries(rates, true);
+        
+        if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0 &&
+           CopyBuffer(bb_handle, 1, 1, 1, bb_upper_buffer) > 0 &&
+           CopyBuffer(bb_handle, 2, 1, 1, bb_lower_buffer) > 0 &&
+           CopyBuffer(stddev_handle, 0, 1, history_bars_for_squeeze, stddev_buffer) > 0)
         {
-            if(stddev_buffer[i] < min_stddev)
+            double price_close = rates[0].close;
+            double bb_upper = bb_upper_buffer[0];
+            double bb_lower = bb_lower_buffer[0];
+            
+            double current_stddev = stddev_buffer[0];
+            double min_stddev = current_stddev;
+
+            for(int i = 1; i < history_bars_for_squeeze; i++)
             {
-                min_stddev = stddev_buffer[i];
+                if(stddev_buffer[i] < min_stddev)
+                {
+                    min_stddev = stddev_buffer[i];
+                }
+            }
+            
+            bool isSqueeze = (current_stddev <= min_stddev * 1.1);
+            
+            if(isSqueeze)
+            {
+                if(price_close > bb_upper)
+                {
+                    long_score += Weight_BB_Squeeze;
+                    if(EnableDebugLogs) Print("BBands Squeeze: Пробой вверх (+" + (string)Weight_BB_Squeeze + " очков)");
+                }
+                if(price_close < bb_lower)
+                {
+                    short_score += Weight_BB_Squeeze;
+                    if(EnableDebugLogs) Print("BBands Squeeze: Пробой вниз (+" + (string)Weight_BB_Squeeze + " очков)");
+                }
             }
         }
         
-        // Считаем, что "сжатие" есть, если текущая волатильность очень близка к своему минимуму
-        bool isSqueeze = (current_stddev <= min_stddev * 1.1);
-        
-        // --- 2. Если было сжатие, ищем прорыв ---
-        if(isSqueeze)
-        {
-            // Прорыв вверх
-            if(price_close > bb_upper)
-            {
-                long_score += 4; // Сильный сигнал на прорыв волатильности
-                if(EnableDebugLogs) Print("BBands Squeeze: Обнаружен прорыв вверх из сжатия. Long (+4 очко)");
-            }
-            // Прорыв вниз
-            if(price_close < bb_lower)
-            {
-                short_score += 4; // Сильный сигнал на прорыв волатильности
-                if(EnableDebugLogs) Print("BBands Squeeze: Обнаружен прорыв вниз из сжатия. Short (+4 очко)");
-            }
-        }
+        IndicatorRelease(bb_handle);
+        IndicatorRelease(stddev_handle);
     }
-    
-    IndicatorRelease(bb_handle);
-    IndicatorRelease(stddev_handle);
 }
 
 // --- Функция-фильтр: проверяет, находится ли волатильность в оптимальном диапазоне ---
@@ -870,6 +870,8 @@ bool IsVolatilityOptimal()
 // --- Функция анализа Стохастического Осциллятора ---
 void CheckStochastic(int &long_score, int &short_score)
 {
+    if(Weight_Stoch_Cross == 0 && Weight_Stoch_Cross_Zone == 0) return;
+
     int stochastic_handle = iStochastic(_Symbol, _Period, 5, 3, 3, MODE_SMA, STO_LOWHIGH);
 
     if(stochastic_handle != INVALID_HANDLE)
@@ -887,25 +889,30 @@ void CheckStochastic(int &long_score, int &short_score)
             double signal_current = signal_line_buffer[1];
             double signal_prev = signal_line_buffer[2];
 
-            // --- ПРОВЕРКА СИГНАЛОВ ПЕРЕСЕЧЕНИЯ ---
+            // Бычье пересечение (быстрая выше медленной)
             if(main_prev <= signal_prev && main_current > signal_current)
             {
-                long_score++;
-                if(EnableDebugLogs) Print("Stochastic Signal: Обнаружено бычье пересечение Long (+1 очко)");
+                long_score += Weight_Stoch_Cross;
+                if(EnableDebugLogs) Print("Stochastic: Обычное бычье пересечение (+" + (string)Weight_Stoch_Cross + " очков)");
+
+                // Пересечение в зоне перепроданности
                 if(main_current < 20 && signal_current < 20)
                 {
-                    long_score += 3;
-                    if(EnableDebugLogs) Print("Stochastic Signal: Пересечение в зоне перепроданности. Long (+3 очка)");
+                    long_score += Weight_Stoch_Cross_Zone;
+                    if(EnableDebugLogs) Print("Stochastic: Пересечение в зоне перепроданности! (+" + (string)Weight_Stoch_Cross_Zone + " очков)");
                 }
             }
+            // Медвежье пересечение (быстрая ниже медленной)
             else if(main_prev >= signal_prev && main_current < signal_current)
             {
-                short_score++;
-                if(EnableDebugLogs) Print("Stochastic Signal: Обнаружено медвежье пересечение Short (+1 очко)");
+                short_score += Weight_Stoch_Cross;
+                if(EnableDebugLogs) Print("Stochastic: Обычное медвежье пересечение (+" + (string)Weight_Stoch_Cross + " очков)");
+                
+                // Пересечение в зоне перекупленности
                 if(main_current > 80 && signal_current > 80)
                 {
-                    short_score += 3;
-                    if(EnableDebugLogs) Print("Stochastic Signal: Пересечение в зоне перекупленности. Short (+3 очка)");
+                    short_score += Weight_Stoch_Cross_Zone;
+                    if(EnableDebugLogs) Print("Stochastic: Пересечение в зоне перекупленности! (+" + (string)Weight_Stoch_Cross_Zone + " очков)");
                 }
             }
         }
@@ -921,9 +928,13 @@ void CheckStochastic(int &long_score, int &short_score)
     }
 }
 
-// --- Функция поиска всплесков объема ---
+
+// --- Функция анализа всплесков объема ---
 void CheckVolumeSpikes(int &long_score, int &short_score)
 {
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_Volume_Spike == 0) return;
+
     // --- Готовим массивы для цен и объемов ---
     MqlRates rates[];
     long volumes[];
@@ -947,7 +958,10 @@ void CheckVolumeSpikes(int &long_score, int &short_score)
     {
         average_volume += volumes[i];
     }
-    average_volume = average_volume / (history_to_check - 1);
+    if(history_to_check - 1 > 0)
+       average_volume = average_volume / (history_to_check - 1);
+    else
+       return; // Избегаем деления на ноль, если период слишком мал
     
     // --- Анализируем последнюю закрытую свечу (индекс 1) ---
     long last_bar_volume = volumes[1];
@@ -964,27 +978,29 @@ void CheckVolumeSpikes(int &long_score, int &short_score)
         // Бычье поглощение на всплеске объема
         if(last_close > last_open && last_close > prev_open && last_open < prev_close)
         {
-            long_score += 3;
-            if(EnableDebugLogs) Print("Volume Spike: Обнаружено бычье поглощение на всплеске объема. Long (+3 очка)");
+            long_score += Weight_Volume_Spike;
+            if(EnableDebugLogs) Print("Volume Spike: Бычье поглощение (+" + (string)Weight_Volume_Spike + " очков)");
         }
         
         // Медвежье поглощение на всплеске объема
         if(last_close < last_open && last_close < prev_open && last_open > prev_close)
         {
-            short_score += 3;
-            if(EnableDebugLogs) Print("Volume Spike: Обнаружено медвежье поглощение на всплеске объема. Short (+3 очка)");
+            short_score += Weight_Volume_Spike;
+            if(EnableDebugLogs) Print("Volume Spike: Медвежье поглощение (+" + (string)Weight_Volume_Spike + " очков)");
         }
     }
 }
 
+
 // --- Функция анализа отката по Фибоначчи с помощью ZigZag ---
 void CheckFibonacciRetracement(int &long_score, int &short_score)
 {
+    if(Weight_Fibo_Rebound == 0) return; // Экономим ресурсы, если вес 0
+
     int zigzag_handle = iCustom(_Symbol, _Period, "Examples\\ZigZag", 12, 5, 3);
     if(zigzag_handle == INVALID_HANDLE) { if(EnableDebugLogs) Print("Fibo: Ошибка создания хэндла ZigZag."); return; }
 
-    // Копируем данные ЗигЗага за последние 300 свечей
-    int history_bars = 100;
+    int history_bars = LookbackBars_SR_Div;
     double zigzag_buffer[];
     ArraySetAsSeries(zigzag_buffer, true);
     if(CopyBuffer(zigzag_handle, 0, 0, history_bars, zigzag_buffer) < 3)
@@ -995,18 +1011,22 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
     }
     
     // --- Ищем 3 последние, непустые точки ЗигЗага ---
-    double points_price[3]; // Массив для хранения цен трех точек
-    int    points_bar[3];   // Массив для хранения индексов баров трех точек
+    double points_price[3];
+    int    points_bar[3];
     int points_found = 0;
     
-    for(int i = 3; i < history_bars; i++)
+    // Исправлен цикл, чтобы избежать выхода за пределы массива zigzag_buffer
+    for(int i = 3; i < history_bars; i++) 
     {
         if(zigzag_buffer[i] != EMPTY_VALUE)
         {
-            points_price[points_found] = zigzag_buffer[i];
-            points_bar[points_found] = i;
-            points_found++;
-            if(points_found == 3) break; // Нашли три точки, выходим из цикла
+            if(points_found < 3) // Защита от выхода за пределы массива points_price/points_bar
+            {
+                points_price[points_found] = zigzag_buffer[i];
+                points_bar[points_found] = i;
+                points_found++;
+            }
+            if(points_found == 3) break;
         }
     }
 
@@ -1015,33 +1035,31 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
     // --- Анализируем последнюю волну, только если нашли ровно 3 точки ---
     if(points_found == 3)
     {
-        // Точки хранятся в обратном порядке: [0] - самая новая, [2] - самая старая
         double newest_point_price = points_price[0];
         double prev_point_price = points_price[1];
-        double pre_prev_point_price = points_price[2];
         
         MqlRates current_rate[];
         if(CopyRates(_Symbol, _Period, 0, 1, current_rate) < 1) return;
         double current_price = current_rate[0].close;
 
-        // --- Сценарий 1: Последняя волна была ВОСХОДЯЩЕЙ (предыдущая точка ниже последней) ---
+        // --- Сценарий 1: Последняя волна была ВОСХОДЯЩЕЙ ---
         if(newest_point_price > prev_point_price)
         {
             double swing_high = newest_point_price;
             double swing_low = prev_point_price;
             double swing_range = swing_high - swing_low;
-            if(swing_range == 0) return; // Защита от деления на ноль
+            if(swing_range == 0) return;
 
             double fibo_61_8_level = swing_high - swing_range * 0.618;
             
             if(MathAbs(current_price - fibo_61_8_level) < (SR_ProximityPips * 10 * _Point))
             {
-                long_score += 4;
-                if(EnableDebugLogs) Print("Fibo Signal: Обнаружен откат к уровню поддержки 61.8%%! (+4 очка Long)");
+                long_score += Weight_Fibo_Rebound;
+                if(EnableDebugLogs) Print("Fibo Rebound: Откат к поддержке 61.8%% (+" + (string)Weight_Fibo_Rebound + " очков)");
             }
         }
         
-        // --- Сценарий 2: Последняя волна была НИСХОДЯЩЕЙ (предыдущая точка выше последней) ---
+        // --- Сценарий 2: Последняя волна была НИСХОДЯЩЕЙ ---
         else if(newest_point_price < prev_point_price)
         {
             double swing_high = prev_point_price;
@@ -1053,8 +1071,8 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
 
             if(MathAbs(current_price - fibo_61_8_level) < (SR_ProximityPips * 10 * _Point))
             {
-                short_score += 4;
-                if(EnableDebugLogs) Print("Fibo Signal: Обнаружен откат к уровню сопротивления 61.8%%! (+4 очка Short)");
+                short_score += Weight_Fibo_Rebound;
+                if(EnableDebugLogs) Print("Fibo Rebound: Откат к сопротивлению 61.8%% (+" + (string)Weight_Fibo_Rebound + " очков)");
             }
         }
     }
@@ -1063,10 +1081,10 @@ void CheckFibonacciRetracement(int &long_score, int &short_score)
 // --- Функция анализа положения цены относительно VWAP ---
 void CheckVWAP(int &long_score, int &short_score)
 {
-    string indicator_path = "Market\\Basic VWAP";
-    
-    int vwap_buffer_number = 0;
+    if(Weight_VWAP == 0) return;
 
+    string indicator_path = "Market\\Basic VWAP";
+    int vwap_buffer_number = 0;
     int vwap_handle = iCustom(_Symbol, _Period, indicator_path);
 
     if(vwap_handle != INVALID_HANDLE)
@@ -1074,30 +1092,26 @@ void CheckVWAP(int &long_score, int &short_score)
         double vwap_buffer[];
         ArraySetAsSeries(vwap_buffer, true);
 
-        // Копируем значение VWAP с последней закрытой свечи
         if(CopyBuffer(vwap_handle, vwap_buffer_number, 1, 1, vwap_buffer) > 0)
         {
             double vwap_value = vwap_buffer[0];
             
-            // Если VWAP рассчитан, продолжаем
             if(vwap_value > 0)
             {
-                // Получаем текущую цену
                 MqlRates rates[];
                 if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0)
                 {
                     double price_close = rates[0].close;
 
-                    // --- Применяем логику: +2 очка за торговлю по правильную сторону от VWAP ---
                     if(price_close > vwap_value)
                     {
-                        long_score += 2;
-                        if(EnableDebugLogs) Print("VWAP: Цена выше VWAP. Long (+2 Очка)");
+                        long_score += Weight_VWAP;
+                        if(EnableDebugLogs) Print("VWAP: Цена выше VWAP (+" + (string)Weight_VWAP + " очков)");
                     }
                     if(price_close < vwap_value)
                     {
-                        short_score += 2;
-                        if(EnableDebugLogs) Print("VWAP: Цена ниже VWAP. Short (+2 Очка)");
+                        short_score += Weight_VWAP;
+                        if(EnableDebugLogs) Print("VWAP: Цена ниже VWAP (+" + (string)Weight_VWAP + " очков)");
                     }
                 }
             }
@@ -1160,8 +1174,11 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
 // --- Функция анализа сигнала от уровней поддержки и сопротивления ---
 void CheckSupportResistanceSignal(int &long_score, int &short_score)
 {
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_SR_Bounce == 0) return;
+
     // --- Ищем уровни с помощью фракталов ---
-    int history_bars = 100;
+    int history_bars = LookbackBars_SR_Div; // Используем общую настройку глубины
     int fractals_handle = iFractals(_Symbol, _Period);
     if(fractals_handle == INVALID_HANDLE) return;
 
@@ -1196,22 +1213,16 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
     // --- Если уровни найдены, применяем логику И РИСУЕМ ИХ ---
     if(resistance_level > 0 && support_level < 999999)
     {
-        // ++++++++++ НОВЫЙ БЛОК: ВИЗУАЛИЗАЦИЯ УРОВНЕЙ ++++++++++
-        // Рисуем линию поддержки
+        // Визуализация уровней (остается без изменений)
         if(ObjectFind(0,"SR_Support_Line")!=0) ObjectCreate(0,"SR_Support_Line",OBJ_HLINE,0,0,0);
         ObjectSetDouble(0,"SR_Support_Line",OBJPROP_PRICE,support_level);
         ObjectSetInteger(0,"SR_Support_Line",OBJPROP_COLOR,clrLimeGreen);
-        ObjectSetInteger(0,"SR_Support_Line",OBJPROP_STYLE,STYLE_DOT);
-        ObjectSetInteger(0,"SR_Support_Line",OBJPROP_WIDTH,2);
 
-        // Рисуем линию сопротивления
         if(ObjectFind(0,"SR_Resistance_Line")!=0) ObjectCreate(0,"SR_Resistance_Line",OBJ_HLINE,0,0,0);
         ObjectSetDouble(0,"SR_Resistance_Line",OBJPROP_PRICE,resistance_level);
         ObjectSetInteger(0,"SR_Resistance_Line",OBJPROP_COLOR,clrRed);
-        ObjectSetInteger(0,"SR_Resistance_Line",OBJPROP_STYLE,STYLE_DOT);
-        ObjectSetInteger(0,"SR_Resistance_Line",OBJPROP_WIDTH,2);
-        // +++++++++++++++++++++++++++++++++++++++++++++++++++++++
 
+        // Применяем логику начисления очков
         MqlRates rates[];
         if(CopyRates(_Symbol, _Period, 1, 1, rates) > 0)
         {
@@ -1222,15 +1233,15 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
             // Проверяем близость к уровню поддержки
             if(MathAbs(price_low - support_level) <= proximity_zone)
             {
-                long_score += 3;
-                if(EnableDebugLogs) Print("S/R Levels: Цена у уровня поддержки (+3 очка)");
+                long_score += Weight_SR_Bounce;
+                if(EnableDebugLogs) Print("S/R Bounce: Уровень поддержки (+" + (string)Weight_SR_Bounce + " очков)");
             }
 
             // Проверяем близость к уровню сопротивления
             if(MathAbs(price_high - resistance_level) <= proximity_zone)
             {
-                short_score += 3;
-                if(EnableDebugLogs) Print("S/R Levels: Цена у уровня сопротивления (+3 очка)");
+                short_score += Weight_SR_Bounce;
+                if(EnableDebugLogs) Print("S/R Bounce: Уровень сопротивления (+" + (string)Weight_SR_Bounce + " очков)");
             }
         }
     }
@@ -1239,12 +1250,13 @@ void CheckSupportResistanceSignal(int &long_score, int &short_score)
 // --- Функция анализа силы тренда ADX/DMI ---
 void CheckADXCrossover(int &long_score, int &short_score)
 {
-    // --- Получаем хэндл на индикатор ADX со стандартным периодом 14 ---
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_ADX_Cross == 0) return;
+
     int adx_handle = iADX(_Symbol, _Period, 14);
 
     if(adx_handle != INVALID_HANDLE)
     {
-        // Готовим буферы для всех трех линий
         double adx_main_buffer[], plus_di_buffer[], minus_di_buffer[];
         int data_to_copy = 3; 
         
@@ -1252,17 +1264,16 @@ void CheckADXCrossover(int &long_score, int &short_score)
         ArraySetAsSeries(plus_di_buffer, true);
         ArraySetAsSeries(minus_di_buffer, true);
         
-        // Копируем данные
-        if(CopyBuffer(adx_handle, 0, 0, data_to_copy, adx_main_buffer) > 0 &&      // Буфер 0: Главная линия ADX
-           CopyBuffer(adx_handle, 1, 0, data_to_copy, plus_di_buffer) > 0 &&       // Буфер 1: Линия +DI
-           CopyBuffer(adx_handle, 2, 0, data_to_copy, minus_di_buffer) > 0)      // Буфер 2: Линия -DI
+        if(CopyBuffer(adx_handle, 0, 0, data_to_copy, adx_main_buffer) > 0 &&
+           CopyBuffer(adx_handle, 1, 0, data_to_copy, plus_di_buffer) > 0 &&
+           CopyBuffer(adx_handle, 2, 0, data_to_copy, minus_di_buffer) > 0)
         {
-            // --- 1. Фильтр силы тренда ---
-            double adx_current = adx_main_buffer[1]; // Значение ADX на последней закрытой свече
+            double adx_current = adx_main_buffer[1];
 
-            if(adx_current >= ADX_TrendStrength) // Проверяем, есть ли вообще тренд
+            // 1. Фильтр силы тренда
+            if(adx_current >= ADX_TrendStrength)
             {
-                // --- 2. Если тренд есть, ищем пересечение ---
+                // 2. Если тренд есть, ищем пересечение
                 double plus_di_current = plus_di_buffer[1];
                 double plus_di_prev = plus_di_buffer[2];
                 double minus_di_current = minus_di_buffer[1];
@@ -1271,20 +1282,21 @@ void CheckADXCrossover(int &long_score, int &short_score)
                 // Бычье пересечение: +DI пересекает -DI снизу вверх
                 if(plus_di_prev <= minus_di_prev && plus_di_current > minus_di_current)
                 {
-                    long_score += 2;
-                    if(EnableDebugLogs) Print("ADX: Обнаружено бычье пересечение (+DI > -DI). Long (+2 Очка)");
+                    long_score += Weight_ADX_Cross;
+                    if(EnableDebugLogs) Print("ADX Crossover: Long (+" + (string)Weight_ADX_Cross + " очков)");
                 }
                 
                 // Медвежье пересечение: -DI пересекает +DI снизу вверх
                 if(minus_di_prev <= plus_di_prev && minus_di_current > plus_di_current)
                 {
-                    short_score += 2;
-                    if(EnableDebugLogs) Print("ADX: Обнаружено медвежье пересечение (-DI > +DI). Short (+2 Очка)");
+                    short_score += Weight_ADX_Cross;
+                    if(EnableDebugLogs) Print("ADX Crossover: Short (+" + (string)Weight_ADX_Cross + " очков)");
                 }
             }
             else
             {
-                if(EnableDebugLogs) Print("ADX Фильтр: Тренд слишком слабый (%.2f < %d). Сигналы DMI игнорируются.", adx_current, ADX_TrendStrength);
+                // Исправлено Print на PrintFormat
+                if(EnableDebugLogs) PrintFormat("ADX Фильтр: Тренд слишком слабый (%.2f < %d). Сигналы DMI игнорируются.", adx_current, ADX_TrendStrength);
             }
         }
         IndicatorRelease(adx_handle);
@@ -1458,47 +1470,46 @@ double CalculateVWRSI(int period)
 // --- Функция-анализатор для сигналов VW-RSI ---
 void CheckVWRSI(int &long_score, int &short_score)
 {
-    // Получаем текущее и предыдущее значения нашего кастомного VW-RSI
+    if(Weight_VWRSI_Zone == 0 && Weight_VWRSI_ExtremeZone == 0) return;
+
     double vw_rsi_current = CalculateVWRSI(14);
-    // Для предыдущего значения нужно будет реализовать более сложный расчет с хранением истории,
-    // поэтому для простоты пока будем использовать только анализ зон.
     
-    if(vw_rsi_current < 0) // Если калькулятор вернул ошибку
+    if(vw_rsi_current < 0)
     {
         if(EnableDebugLogs) Print("VW-RSI: Не удалось рассчитать значение.");
         return;
     }
     
-    // --- Анализ "Зоны импульса" (+1 очко) ---
+    // --- Анализ "Зоны импульса" ---
     if(vw_rsi_current > 50)
     {
-        long_score++;
-        if(EnableDebugLogs) Print("VW-RSI: Бычья зона (>50) (+1 очко)");
+        long_score += Weight_VWRSI_Zone;
+        if(EnableDebugLogs) Print("VW-RSI: Бычья зона (>50) (+" + (string)Weight_VWRSI_Zone + " очков)");
     }
     if(vw_rsi_current < 50)
     {
-        short_score++;
-        if(EnableDebugLogs) Print("VW-RSI: Медвежья зона (<50) (+1 очко)");
+        short_score += Weight_VWRSI_Zone;
+        if(EnableDebugLogs) Print("VW-RSI: Медвежья зона (<50) (+" + (string)Weight_VWRSI_Zone + " очков)");
     }
     
-    // --- Анализ зон перекупленности/перепроданности (+2 очка) ---
-    // В отличие от RSI, здесь мы даем очки за само нахождение в зоне,
-    // так как это уже подтверждено объемом
+    // --- Анализ зон перекупленности/перепроданности ---
     if(vw_rsi_current < 30)
     {
-        long_score += 2;
-        if(EnableDebugLogs) Print("VW-RSI: В зоне перепроданности (<30) (+2 очка)");
+        long_score += Weight_VWRSI_ExtremeZone;
+        if(EnableDebugLogs) Print("VW-RSI: В зоне перепроданности (<30) (+" + (string)Weight_VWRSI_ExtremeZone + " очков)");
     }
     if(vw_rsi_current > 70)
     {
-        short_score += 2;
-        if(EnableDebugLogs) Print("VW-RSI: В зоне перекупленности (>70) (+2 очка)");
+        short_score += Weight_VWRSI_ExtremeZone;
+        if(EnableDebugLogs) Print("VW-RSI: В зоне перекупленности (>70) (+" + (string)Weight_VWRSI_ExtremeZone + " очков)");
     }
 }
 
 // --- Функция анализа свечного паттерна "Пин-бар" у уровней S/R ---
 void CheckPinBarSignal(int &long_score, int &short_score)
 {
+    if(Weight_PinBar == 0) return;
+
     // Получаем данные последней закрытой свечи
     MqlRates rates[];
     if(CopyRates(_Symbol, _Period, 1, 1, rates) < 1) return;
@@ -1512,7 +1523,6 @@ void CheckPinBarSignal(int &long_score, int &short_score)
     double total_range = candle_high - candle_low;
     double body_size = MathAbs(candle_close - candle_open);
     
-    // Избегаем деления на ноль на дожи-свечах
     if(total_range == 0) return;
 
     double upper_wick = candle_high - MathMax(candle_open, candle_close);
@@ -1533,15 +1543,15 @@ void CheckPinBarSignal(int &long_score, int &short_score)
             // Если это бычий пин-бар и он находится у поддержки
             if(is_bullish_pinbar && MathAbs(candle_low - support) <= proximity_zone)
             {
-                long_score += 4;
-                if(EnableDebugLogs) Print("Candle Pattern: Обнаружен бычий Пин-бар у поддержки! (+4 очка)");
+                long_score += Weight_PinBar;
+                if(EnableDebugLogs) Print("PinBar: Бычий у поддержки (+" + (string)Weight_PinBar + " очков)");
             }
             
             // Если это медвежий пин-бар и он находится у сопротивления
             if(is_bearish_pinbar && MathAbs(candle_high - resistance) <= proximity_zone)
             {
-                short_score += 4;
-                if(EnableDebugLogs) Print("Candle Pattern: Обнаружен медвежий Пин-бар у сопротивления! (+4 очка)");
+                short_score += Weight_PinBar;
+                if(EnableDebugLogs) Print("PinBar: Медвежий у сопротивления (+" + (string)Weight_PinBar + " очков)");
             }
         }
     }
@@ -1551,6 +1561,9 @@ void CheckPinBarSignal(int &long_score, int &short_score)
 // --- Функция продвинутого анализа Имбаланса (Магнит + Тест) ---
 void CheckImbalance_Advanced(int &long_score, int &short_score)
 {
+    // Если оба веса равны нулю, не тратим ресурсы на выполнение функции
+    if(Weight_Imbalance_Magnet == 0 && Weight_Imbalance_Test == 0) return;
+
     MqlRates rates[];
     int history_bars = 50;
     if(CopyRates(_Symbol, _Period, 0, history_bars, rates) < history_bars) return;
@@ -1560,52 +1573,62 @@ void CheckImbalance_Advanced(int &long_score, int &short_score)
     double current_price_high = rates[1].high;
 
     // Ищем в прошлое, пока не найдем первый же незаполненный имбаланс
-    // Изменили "history_bars" на "history_bars - 1", чтобы i+1 не вышло за пределы
-    for(int i = 3; i < history_bars - 1; i++)
+    for(int i = 2; i < history_bars; i++) // Начинаем с индекса 2 для анализа 3-х свечной формации
     {
         // --- Поиск БЫЧЬЕГО имбаланса (ниже текущей цены) ---
-        double bullish_fvg_top = rates[i+1].high;
-        double bullish_fvg_bottom = rates[i-1].low;
-        
-        if(bullish_fvg_top < bullish_fvg_bottom)
+        // Условие: high свечи i-2 < low свечи i. Свеча i-1 - импульсная.
+        if(rates[i-2].high < rates[i].low)
         {
-            if(bullish_fvg_bottom < current_price_low)
+            double fvg_top = rates[i-2].high;
+            double fvg_bottom = rates[i].low;
+
+            // Убеждаемся, что этот имбаланс находится НИЖЕ текущей цены и еще не был заполнен
+            if(fvg_bottom < current_price_low)
             {
-                long_score += 2;
-                if(EnableDebugLogs) Print("Imbalance Magnet: Найден бычий FVG ниже цены (+2 очка)");
-                if(current_price_low <= bullish_fvg_bottom)
+                long_score += Weight_Imbalance_Magnet;
+                if(EnableDebugLogs) Print("Imbalance: Найден бычий FVG-магнит (+" + (string)Weight_Imbalance_Magnet + " очков)");
+
+                // Дополнительная проверка на тест этой зоны
+                if(current_price_low <= fvg_bottom)
                 {
-                    long_score += 2;
-                    if(EnableDebugLogs) Print("Imbalance: Цена тестирует бычий FVG! (еще +2 очка)");
+                    long_score += Weight_Imbalance_Test;
+                    if(EnableDebugLogs) Print("Imbalance: Цена тестирует бычий FVG! (еще +" + (string)Weight_Imbalance_Test + " очков)");
                 }
-                break; 
+                break; // Нашли ближайший, выходим из цикла
             }
         }
 
         // --- Поиск МЕДВЕЖЬЕГО имбаланса (выше текущей цены) ---
-        double bearish_fvg_bottom = rates[i+1].low;
-        double bearish_fvg_top = rates[i-1].high;
-        
-        if(bearish_fvg_bottom > bearish_fvg_top)
+        // Условие: low свечи i-2 > high свечи i. Свеча i-1 - импульсная.
+        if(rates[i-2].low > rates[i].high)
         {
-            if(bearish_fvg_top > current_price_high)
+            double fvg_bottom = rates[i-2].low;
+            double fvg_top = rates[i].high;
+            
+            // Убеждаемся, что этот имбаланс находится ВЫШЕ текущей цены и еще не был заполнен
+            if(fvg_top > current_price_high)
             {
-                short_score += 2;
-                if(EnableDebugLogs) Print("Imbalance Magnet: Найден медвежий FVG выше цены (+2 очка)");
-                if(current_price_high >= bearish_fvg_top)
+                short_score += Weight_Imbalance_Magnet;
+                if(EnableDebugLogs) Print("Imbalance: Найден медвежий FVG-магнит (+" + (string)Weight_Imbalance_Magnet + " очков)");
+
+                // Дополнительная проверка на тест этой зоны
+                if(current_price_high >= fvg_top)
                 {
-                    short_score += 2;
-                    if(EnableDebugLogs) Print("Imbalance: Цена тестирует медвежий FVG! (еще +2 очка)");
+                    short_score += Weight_Imbalance_Test;
+                    if(EnableDebugLogs) Print("Imbalance: Цена тестирует медвежий FVG! (еще +" + (string)Weight_Imbalance_Test + " очков)");
                 }
-                break;
+                break; // Нашли ближайший, выходим из цикла
             }
         }
     }
 }
 
-// --- Функция анализа прорыва из скопления Доджи (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+
+// --- Функция анализа прорыва из скопления Доджи ---
 void CheckDojiClusterBreakout(int &long_score, int &short_score)
 {
+    if(Weight_Doji_Breakout == 0) return;
+
     // Запрашиваем на 1 бар больше, чем глубина поиска, для проверки пробоя
     int bars_to_check_for_breakout = 1;
     int bars_to_copy = DojiClusterBars + bars_to_check_for_breakout + 1; // +1 для запаса
@@ -1636,7 +1659,6 @@ void CheckDojiClusterBreakout(int &long_score, int &short_score)
     // --- 2. Если скопление найдено, проверяем ПОСЛЕДНЮЮ ЗАКРЫТУЮ СВЕЧУ (индекс 1) на пробой ---
     if(doji_count >= DojiClusterMinCount)
     {
-        // Используем PrintFormat для правильного отображения чисел
         if(EnableDebugLogs) PrintFormat("Doji Cluster: Обнаружено скопление Доджи в диапазоне [%.5f - %.5f]", cluster_low, cluster_high);
         
         double breakout_candle_close = rates[1].close;
@@ -1644,15 +1666,15 @@ void CheckDojiClusterBreakout(int &long_score, int &short_score)
         // Проверяем пробой вверх
         if(breakout_candle_close > cluster_high)
         {
-            long_score += 4;
-            if(EnableDebugLogs) Print("Doji Cluster: Пробой вверх из скопления! (+4 очка)");
+            long_score += Weight_Doji_Breakout;
+            if(EnableDebugLogs) Print("Doji Cluster: Пробой вверх (+" + (string)Weight_Doji_Breakout + " очков)");
         }
         
         // Проверяем пробой вниз
         if(breakout_candle_close < cluster_low)
         {
-            short_score += 4;
-            if(EnableDebugLogs) Print("Doji Cluster: Пробой вниз из скопления! (+4 очка)");
+            short_score += Weight_Doji_Breakout;
+            if(EnableDebugLogs) Print("Doji Cluster: Пробой вниз (+" + (string)Weight_Doji_Breakout + " очков)");
         }
     }
 }
@@ -1660,6 +1682,8 @@ void CheckDojiClusterBreakout(int &long_score, int &short_score)
 // --- Функция анализа гэпа выходного дня ---
 void CheckWeekendGap(int &long_score, int &short_score)
 {
+    if(Weight_Weekend_Gap == 0) return;
+
     // --- Получаем информацию о времени текущей свечи ---
     MqlDateTime current_time_struct;
     TimeCurrent(current_time_struct);
@@ -1686,15 +1710,15 @@ void CheckWeekendGap(int &long_score, int &short_score)
         // Сценарий "Гэп ВВЕРХ" -> сигнал на продажу для закрытия гэпа
         if(current_open > prev_close)
         {
-            short_score += 4;
-            if(EnableDebugLogs) PrintFormat("Gap Analysis: Обнаружен гэп вверх на %.1f пипсов. (+4 очка Short)", gap_size_pips);
+            short_score += Weight_Weekend_Gap;
+            if(EnableDebugLogs) PrintFormat("Gap Analysis: Обнаружен гэп вверх на %.1f пипсов (+" + (string)Weight_Weekend_Gap + " очков)", gap_size_pips);
         }
         
         // Сценарий "Гэп ВНИЗ" -> сигнал на покупку для закрытия гэпа
         if(current_open < prev_close)
         {
-            long_score += 4;
-            if(EnableDebugLogs) PrintFormat("Gap Analysis: Обнаружен гэп вниз на %.1f пипсов. (+4 очка Long)", gap_size_pips);
+            long_score += Weight_Weekend_Gap;
+            if(EnableDebugLogs) PrintFormat("Gap Analysis: Обнаружен гэп вниз на %.1f пипсов (+" + (string)Weight_Weekend_Gap + " очков)", gap_size_pips);
         }
     }
 }
@@ -1721,11 +1745,11 @@ bool IsSpreadAcceptable()
 }
 
 
-// --- Функция анализа тренда индикатора On Balance Volume (OBV) (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+// --- Функция анализа тренда индикатора On Balance Volume (OBV) ---
 void CheckOBV(int &long_score, int &short_score)
 {
-    // Период, с которым будем сравнивать текущее значение
-    int obv_lookback_period = 10;
+    // Если вес сигнала равен 0, не тратим ресурсы на расчет
+    if(Weight_OBV_Trend == 0) return;
     
     int obv_handle = iOBV(_Symbol, _Period, VOLUME_TICK);
     if(obv_handle != INVALID_HANDLE)
@@ -1735,8 +1759,9 @@ void CheckOBV(int &long_score, int &short_score)
         double past_obv_buffer[1];
         
         // Копируем данные в разные буферы
+        // Используем наш новый input-параметр для периода сравнения
         if(CopyBuffer(obv_handle, 0, 1, 1, current_obv_buffer) > 0 &&
-           CopyBuffer(obv_handle, 0, 1 + obv_lookback_period, 1, past_obv_buffer) > 0)
+           CopyBuffer(obv_handle, 0, 1 + OBV_Lookback_Period, 1, past_obv_buffer) > 0)
         {
             double obv_current = current_obv_buffer[0];
             double obv_past = past_obv_buffer[0];
@@ -1744,13 +1769,13 @@ void CheckOBV(int &long_score, int &short_score)
             // Сравниваем текущее значение с прошлым
             if(obv_current > obv_past)
             {
-                long_score += 2;
-                if(EnableDebugLogs) Print("OBV: Тренд индикатора восходящий (+2 очка)");
+                long_score += Weight_OBV_Trend;
+                if(EnableDebugLogs) Print("OBV: Тренд восходящий (+" + (string)Weight_OBV_Trend + " очков)");
             }
             if(obv_current < obv_past)
             {
-                short_score += 2;
-                if(EnableDebugLogs) Print("OBV: Тренд индикатора нисходящий (+2 очка)");
+                short_score += Weight_OBV_Trend;
+                if(EnableDebugLogs) Print("OBV: Тренд нисходящий (+" + (string)Weight_OBV_Trend + " очков)");
             }
         }
         else
@@ -1765,9 +1790,12 @@ void CheckOBV(int &long_score, int &short_score)
     }
 }
 
+
 // --- Функция анализа прорыва из сжатия ленты EMA ---
 void CheckEmaRibbonSqueeze(int &long_score, int &short_score)
 {
+    if(Weight_EmaRibbon_Squeeze == 0 || EmaRibbon_Num_EMAs <= 0) return;
+
     // Создаем массив для хранения хэндлов и значений всех наших EMA
     int ema_handles[];
     double ema_values[];
@@ -1779,35 +1807,40 @@ void CheckEmaRibbonSqueeze(int &long_score, int &short_score)
     {
         int current_period = EmaRibbon_Period_Start + (i * EmaRibbon_Period_Step);
         ema_handles[i] = iMA(_Symbol, _Period, current_period, 0, MODE_EMA, PRICE_CLOSE);
-        if(ema_handles[i] == INVALID_HANDLE) return; // Если не удалось создать одну из EMA, выходим
+        if(ema_handles[i] == INVALID_HANDLE)
+        {
+            // Освобождаем уже созданные хэндлы перед выходом
+            for(int k=0; k<i; k++) IndicatorRelease(ema_handles[k]);
+            return;
+        }
     }
 
     // В цикле копируем значения для каждой EMA
+    bool copy_success = true;
     for(int i = 0; i < EmaRibbon_Num_EMAs; i++)
     {
-        double buffer[];
+        double buffer[1];
         if(CopyBuffer(ema_handles[i], 0, 1, 1, buffer) > 0)
         {
             ema_values[i] = buffer[0];
         }
-        else // Если не удалось скопировать данные, выходим
+        else
         {
-            for(int j=0; j<EmaRibbon_Num_EMAs; j++) IndicatorRelease(ema_handles[j]);
-            return;
+            copy_success = false;
+            break;
         }
     }
     
     // Освобождаем все хэндлы
     for(int i=0; i<EmaRibbon_Num_EMAs; i++) IndicatorRelease(ema_handles[i]);
+    
+    // Если копирование не удалось, выходим
+    if(!copy_success) return;
+
 
     // Находим максимальное и минимальное значение среди всех EMA
-    double max_ema = ema_values[0];
-    double min_ema = ema_values[0];
-    for(int i = 1; i < EmaRibbon_Num_EMAs; i++)
-    {
-        if(ema_values[i] > max_ema) max_ema = ema_values[i];
-        if(ema_values[i] < min_ema) min_ema = ema_values[i];
-    }
+    double max_ema = ArrayMaximum(ema_values);
+    double min_ema = ArrayMinimum(ema_values);
 
     // --- 1. Определяем, есть ли сейчас "Сжатие" ---
     double ribbon_width_pips = (max_ema - min_ema) / (_Point * 10);
@@ -1816,23 +1849,23 @@ void CheckEmaRibbonSqueeze(int &long_score, int &short_score)
     // --- 2. Если было сжатие, ищем пробой ---
     if(isSqueeze)
     {
-        //if(EnableDebugLogs) PrintFormat("EMA Ribbon: Обнаружено сжатие ленты (ширина %.1f пипсов)", ribbon_width_pips);
+        if(EnableDebugLogs) PrintFormat("EMA Ribbon: Обнаружено сжатие ленты (ширина %.1f пипсов)", ribbon_width_pips);
         
-        MqlRates rate[];
+        MqlRates rate[1];
         if(CopyRates(_Symbol, _Period, 1, 1, rate) > 0)
         {
             double last_close_price = rate[0].close;
             // Проверяем пробой вверх
             if(last_close_price > max_ema)
             {
-                long_score += 4;
-                if(EnableDebugLogs) Print("EMA Ribbon: Пробой вверх из сжатия! (+4 очка)");
+                long_score += Weight_EmaRibbon_Squeeze;
+                if(EnableDebugLogs) Print("EMA Ribbon: Пробой вверх (+" + (string)Weight_EmaRibbon_Squeeze + " очков)");
             }
             // Проверяем пробой вниз
             if(last_close_price < min_ema)
             {
-                short_score += 4;
-                if(EnableDebugLogs) Print("EMA Ribbon: Пробой вниз из сжатия! (+4 очка)");
+                short_score += Weight_EmaRibbon_Squeeze;
+                if(EnableDebugLogs) Print("EMA Ribbon: Пробой вниз (+" + (string)Weight_EmaRibbon_Squeeze + " очков)");
             }
         }
     }
