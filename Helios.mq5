@@ -2,52 +2,58 @@
 //|                                                       Helios.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.50"
+#property version "4.51"
 
-//--- Входные параметры для торговли
-input int    NumberOfTrades        = 1;       // На сколько частей делить сделку (1 = обычная сделка)
-input double LotSize               = 0.01;    // ОБЩИЙ размер лота для сделки
-input int    StopLossBufferPips    = 15;      // Отступ для Стоп-Лосса от уровня в пипсах
-input int    TakeProfitBufferPips  = 10;      // Отступ для Тейк-Профита от уровня в пипсах
-input int    MinBarsBetweenTrades  = 4;       // Минимальное кол-во свечей между сделками
-input int    MinProfitPips         = 20;      // Минимальная дистанция до TP в пипсах, чтобы сделка имела смысл
-input int    TrailingStopPips      = 50;      // Дистанция трейлинг-стопа в пипсах (0 = выключен)
-input double BreakoutTP_ATR_Multiplier = 3.0; // Множитель ATR для тейк-профита на пробое
-input bool   EnableDebugLogs       = false;   // Включить подробное логирование? (сильно замедляет тесты)
-input bool   AllowMultipleTrades = false;     // Разрешить новую серию ордеров?
+//--- 1. Группа: Настройки Торговли и Позиции
+input group "Настройки Торговли и Позиции";
+input double LotSize               = 0.01;   // ОБЩИЙ размер лота для сделки
+input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
+input bool   AllowMultipleTrades   = false;  // Разрешить новую серию ордеров, если старая в рынке?
+input int    MinBarsBetweenTrades  = 4;      // Cooldown: Минимальное кол-во свечей между сделками
+input int    TrailingStopPips      = 50;     // Дистанция трейлинг-стопа в пипсах (0 = выключен)
 
-//--- Входные параметры для сигналов
-input group "--- Пороги Сигналов ---"
-input int long_score_threshold  = 80;     // Порог в % для сигнала LONG
-input int short_score_threshold = 80;     // Порог в % для сигнала SHORT
+//--- 2. Группа: Настройки SL/TP
+input group "Настройки SL/TP";
+input int    StopLossBufferPips      = 15; // Отступ для Стоп-Лосса от уровня S/R
+input int    TakeProfitBufferPips    = 10; // Отступ для Тейк-Профита от уровня S/R
+input double FirstTargetRatio        = 0.5;    // Коэффициент для первого Тейк-Профита при делении сделки
+input double BreakoutTP_ATR_Multiplier = 3.0;    // Множитель ATR для тейк-профита на пробое
+input int    MinProfitPips           = 20;     // Мин. дистанция до TP для входа в сделку "на отбой"
 
-//--- Входные параметры для фильтров
-input group "--- Фильтры ---"
-input int    MaxSpreadPips       = 5;        // Максимально допустимый спред для торговли в пипсах (0 = выключен)
-input int    ADX_TrendStrength     = 25;     // Минимальная сила тренда по ADX
-input int    SR_ProximityPips      = 15;     // Зона приближения к уровням S/R в пипсах
-input double VolumeMultiplier      = 2.0;    // Множитель для всплеска объема
-input double MinATR_Value          = 0.00050;// Минимальное значение ATR для торговли
-input double MaxATR_Value          = 0.3;    // Максимальное значение ATR (0 = фильтр выключен)
+//---  Группа: Пороги и Фильтры Входа
+input group "Пороги и Фильтры Входа";
+input int    long_score_threshold    = 80;     // Порог в % для сигнала LONG
+input int    short_score_threshold   = 80;     // Порог в % для сигнала SHORT
+input int    MaxSpreadPips           = 5;      // Фильтр Спреда: Максимально допустимый спред (0 = выключен)
+input int    ADX_TrendStrength       = 25;     // Фильтр ADX: Минимальная сила тренда
+input double MinATR_Value            = 0.00050;// Фильтр ATR: Минимальная волатильность
+input double MaxATR_Value            = 0.0;    // Фильтр ATR: Максимальная волатильность (0 = выключен)
+input double VolumeMultiplier        = 2.0;    // Фильтр Объема: Множитель для всплеска
+input int    MinGapPips              = 20;     // Фильтр Гэпов: Минимальный размер гэпа в пипсах
+input int    SR_ProximityPips        = 15;     // Фильтр S/R: Зона приближения к уровням для сигнала
 
-//--- Входные параметры для свечных паттернов
-input group "--- Фильтры Свечных Паттернов ---";
-input double PinBarMaxBodyRatio = 0.33; // PinBar Макс. размер тела относительно свечи (1/3)
-input double PinBarMinWickRatio = 0.60; // PinBar Мин. размер главной тени относительно свечи
-input double DojiMaxBodyRatio   = 0.15; // Макс. размер тела для Доджи (15% от свечи)
-input int    DojiClusterBars    = 5;    // На скольких свечах ищем скопление
-input int    DojiClusterMinCount= 3;    // Сколько минимум Доджи должно быть для скопления
-input int    MinGapPips = 20;           // Минимальный размер гэпа в пипсах для сигнала
+//---  Группа: Настройки Price Action и Индикаторов
+input group "Настройки Price Action и Индикаторов";
+input int    LookbackBars_SR_Div     = 150;    // Глубина поиска уровней S/R и дивергенций
+input int    OBV_Lookback_Period     = 10;     // OBV: Период для сравнения тренда
+input double PinBarMaxBodyRatio      = 0.33;   // Пин-бар: Макс. размер тела
+input double PinBarMinWickRatio      = 0.60;   // Пин-бар: Мин. размер тени
+input double DojiMaxBodyRatio        = 0.15;   // Доджи: Макс. размер тела
+input int    DojiClusterBars         = 5;      // Доджи: Глубина поиска скопления
+input int    DojiClusterMinCount     = 3;      // Доджи: Мин. кол-во в скоплении
 
+//---  Группа: Отладка
+input group "Отладка";
+input bool   EnableDebugLogs         = false;  // Включить подробное логирование? (сильно замедляет тесты)
 //--- Входные параметры для EMA Ribbon
-input group "--- Фильтры EMA Ribbon Squeeze ---";
+input group "Фильтры EMA Ribbon Squeeze";
 input int    EmaRibbon_Period_Start = 20;    // Стартовый период для первой EMA в ленте
 input int    EmaRibbon_Period_Step  = 5;     // Шаг для следующей EMA (20, 25, 30...)
 input int    EmaRibbon_Num_EMAs     = 6;     // Количество EMA в ленте
 input int    EmaRibbon_SqueezePips  = 15;    // Макс. ширина ленты в пипсах для сигнала "Сжатие"
 
 //--- Группа: Веса (Очки) для Сигналов ---
-input group "--- Веса (Очки) для Сигналов ---";
+input group "Веса (Очки) для Сигналов";
 input int Weight_D1_Trend         = 3; // Тренд на D1 (цена vs EMA 50) +
 input int Weight_RSI_Exit         = 2; // RSI: Выход из зон 30/70 +
 input int Weight_RSI_Zone         = 1; // RSI: Положение относительно уровня 50 +
@@ -66,7 +72,8 @@ input int Weight_Ichi_Chikou      = 1; // Ichimoku: Фильтр по линии
 input int Weight_Stoch_Cross_Zone = 3; // Stochastic: Пересечение в экстремальной зоне (20/80) +
 input int Weight_Stoch_Cross      = 1; // Stochastic: Обычное пересечение в любом месте +
 input int Weight_Fibo_Rebound     = 4; // Fibonacci: Отскок от уровня отката 61.8% +
-input int Weight_Imbalance        = 3; // Imbalance/FVG: Тест ценой зоны имбаланса +
+input int Weight_Imbalance_Magnet = 2; // Вес за наличие незаполненного имбаланса ("магнит") +
+input int Weight_Imbalance_Test   = 2; // Дополнительный вес за тест этого имбаланса +
 input int Weight_Volume_Spike     = 3; // Volume: Свеча поглощения на всплеске объема +
 input int Weight_ADX_Cross        = 2; // ADX: Пересечение линий +DI / -DI +
 input int Weight_VWAP             = 2; // VWAP: Положение цены относительно дневного VWAP +
@@ -78,6 +85,7 @@ input int Weight_EmaRibbon_Squeeze= 4; // EMA Ribbon: Пробой из сжат
 input int Weight_VWRSI_Zone        = 1; // Вес для нахождения VW-RSI в бычьей/медвежьей зоне (>50 или <50) +
 input int Weight_VWRSI_ExtremeZone = 2; // Вес для нахождения VW-RSI в экстремальной зоне (30/70) +
 input int Weight_Weekend_Gap = 4; // Вес для сигнала: Гэп выходного дня +
+
 
 //--- Прототипы функций ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob);
