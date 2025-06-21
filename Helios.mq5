@@ -2,7 +2,7 @@
 //|                                                       Helios.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.49"
+#property version "4.50"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
