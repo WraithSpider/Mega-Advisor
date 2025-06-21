@@ -2,7 +2,7 @@
 //|                                                       Helios.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.52"
+#property version "4.51"
 
 //--- 1. Группа: Настройки Торговли и Позиции
 input group "Настройки Торговли и Позиции";
@@ -55,37 +55,37 @@ input int    EmaRibbon_SqueezePips  = 15;    // Макс. ширина лент�
 
 //--- Группа: Веса (Очки) для Сигналов ---
 input group "Веса (Очки) для Сигналов";
-input int Weight_D1_Trend         = 3; // Тренд на D1 (цена vs EMA 50) +
-input int Weight_RSI_Exit         = 2; // RSI: Выход из зон 30/70 +
-input int Weight_RSI_Zone         = 1; // RSI: Положение относительно уровня 50 +
-input int Weight_Divergence       = 5; // RSI: Классическая дивергенция по фракталам +
-input int Weight_MACD_Cross       = 3; // MACD: Пересечение главной и сигнальной линий +
-input int Weight_MACD_State       = 1; // MACD: Состояние (главная выше/ниже сигнальной) +
-input int Weight_MACD_Histo       = 1; // MACD: Рост/падение гистограммы (импульс) +
-input int Weight_EMA_Cross        = 2; // Пересечение быстрых EMA (12/26) +
-input int Weight_SMA_Cross        = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест) +
-input int Weight_WMA_Trend        = 3; // Тренд по WMA(200) (цена выше/ниже) +
-input int Weight_BB_Rebound       = 3; // BBands: Отскок от границы по тренду +
-input int Weight_BB_Squeeze       = 4; // BBands: Пробой из "сжатия" волатильности +
-input int Weight_Ichi_Cloud       = 3; // Ichimoku: Положение цены относительно Облака +
-input int Weight_Ichi_TK_Cross    = 2; // Ichimoku: Пересечение линий Tenkan/Kijun +
-input int Weight_Ichi_Chikou      = 1; // Ichimoku: Фильтр по линии Chikou +
-input int Weight_Stoch_Cross_Zone = 3; // Stochastic: Пересечение в экстремальной зоне (20/80) +
-input int Weight_Stoch_Cross      = 1; // Stochastic: Обычное пересечение в любом месте +
-input int Weight_Fibo_Rebound     = 4; // Fibonacci: Отскок от уровня отката 61.8% +
-input int Weight_Imbalance_Magnet = 2; // Вес за наличие незаполненного имбаланса ("магнит") +
-input int Weight_Imbalance_Test   = 2; // Дополнительный вес за тест этого имбаланса +
-input int Weight_Volume_Spike     = 3; // Volume: Свеча поглощения на всплеске объема +
-input int Weight_ADX_Cross        = 2; // ADX: Пересечение линий +DI / -DI +
-input int Weight_VWAP             = 2; // VWAP: Положение цены относительно дневного VWAP +
-input int Weight_PinBar           = 4; // Паттерн: Пин-бар на уровне поддержки/сопротивления +
-input int Weight_Doji_Breakout    = 4; // Паттерн: Пробой из скопления Доджи +
-input int Weight_SR_Bounce        = 3; // S/R: Тест ценой ближайшего уровня поддержки/сопротивления +
-input int Weight_OBV_Trend        = 2; // OBV: Тренд индикатора On Balance Volume +
-input int Weight_EmaRibbon_Squeeze= 4; // EMA Ribbon: Пробой из сжатия ленты EMA
+input int Weight_D1_Trend          = 3; // Тренд на D1 (цена vs EMA 50) +
+input int Weight_RSI_Exit          = 2; // RSI: Выход из зон 30/70 +
+input int Weight_RSI_Zone          = 1; // RSI: Положение относительно уровня 50 +
+input int Weight_Divergence        = 5; // RSI: Классическая дивергенция по фракталам +
+input int Weight_MACD_Cross        = 3; // MACD: Пересечение главной и сигнальной линий +
+input int Weight_MACD_State        = 1; // MACD: Состояние (главная выше/ниже сигнальной) +
+input int Weight_MACD_Histo        = 1; // MACD: Рост/падение гистограммы (импульс) +
+input int Weight_EMA_Cross         = 2; // Пересечение быстрых EMA (12/26) +
+input int Weight_SMA_Cross         = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест) +
+input int Weight_WMA_Trend         = 3; // Тренд по WMA(200) (цена выше/ниже) +
+input int Weight_BB_Rebound        = 3; // BBands: Отскок от границы по тренду +
+input int Weight_BB_Squeeze        = 4; // BBands: Пробой из "сжатия" волатильности +
+input int Weight_Ichi_Cloud        = 3; // Ichimoku: Положение цены относительно Облака +
+input int Weight_Ichi_TK_Cross     = 2; // Ichimoku: Пересечение линий Tenkan/Kijun +
+input int Weight_Ichi_Chikou       = 1; // Ichimoku: Фильтр по линии Chikou +
+input int Weight_Stoch_Cross_Zone  = 3; // Stochastic: Пересечение в экстремальной зоне (20/80) +
+input int Weight_Stoch_Cross       = 1; // Stochastic: Обычное пересечение в любом месте +
+input int Weight_Fibo_Rebound      = 4; // Fibonacci: Отскок от уровня отката 61.8% +
+input int Weight_Imbalance_Magnet  = 2; // Вес за наличие незаполненного имбаланса ("магнит") +
+input int Weight_Imbalance_Test    = 2; // Дополнительный вес за тест этого имбаланса +
+input int Weight_Volume_Spike      = 3; // Volume: Свеча поглощения на всплеске объема +
+input int Weight_ADX_Cross         = 2; // ADX: Пересечение линий +DI / -DI +
+input int Weight_VWAP              = 2; // VWAP: Положение цены относительно дневного VWAP +
+input int Weight_PinBar            = 4; // Паттерн: Пин-бар на уровне поддержки/сопротивления +
+input int Weight_Doji_Breakout     = 4; // Паттерн: Пробой из скопления Доджи +
+input int Weight_SR_Bounce         = 3; // S/R: Тест ценой ближайшего уровня поддержки/сопротивления +
+input int Weight_OBV_Trend         = 2; // OBV: Тренд индикатора On Balance Volume +
+input int Weight_EmaRibbon_Squeeze = 4; // EMA Ribbon: Пробой из сжатия ленты EMA
 input int Weight_VWRSI_Zone        = 1; // Вес для нахождения VW-RSI в бычьей/медвежьей зоне (>50 или <50) +
 input int Weight_VWRSI_ExtremeZone = 2; // Вес для нахождения VW-RSI в экстремальной зоне (30/70) +
-input int Weight_Weekend_Gap = 4; // Вес для сигнала: Гэп выходного дня +
+input int Weight_Weekend_Gap       = 4; // Вес для сигнала: Гэп выходного дня +
 
 
 //--- Прототипы функций ---
@@ -462,27 +462,29 @@ void CheckFractalDivergence(int &long_score, int &short_score)
 // --- Функция углубленного анализа MACD с настраиваемыми весами ---
 void CheckDeepMACD(int &long_score, int &short_score)
 {
-    if(Weight_MACD_Cross == 0 && Weight_MACD_State == 0 && Weight_MACD_Histo == 0) return; // Экономим ресурсы, если все веса = 0
+    if(Weight_MACD_Cross == 0 && Weight_MACD_State == 0 && Weight_MACD_Histo == 0) return;
 
     int macd_handle = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);
     if(macd_handle != INVALID_HANDLE)
     {
-        double macd_main_buffer[], macd_signal_buffer[], macd_histogram_buffer[];
+        // Готовим буферы только для существующих линий: главной и сигнальной
+        double macd_main_buffer[], macd_signal_buffer[];
         int data_to_copy = 3; 
         ArraySetAsSeries(macd_main_buffer, true);
         ArraySetAsSeries(macd_signal_buffer, true);
-        ArraySetAsSeries(macd_histogram_buffer, true);
         
+        // Копируем данные только из буферов 0 и 1
         if(CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer) > 0 &&
-           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0 &&
-           CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer) > 0)
+           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0)
         {
             double main_current = macd_main_buffer[1];
             double main_prev = macd_main_buffer[2];
             double signal_current = macd_signal_buffer[1];
             double signal_prev = macd_signal_buffer[2];
-            double hist_current = macd_histogram_buffer[1];
-            double hist_prev = macd_histogram_buffer[2];
+
+            // --- Рассчитываем гистограмму вручную ---
+            double hist_current = main_current - signal_current;
+            double hist_prev = main_prev - signal_prev;
 
             // --- 1. Анализ ПЕРЕСЕЧЕНИЯ ---
             if(main_prev <= signal_prev && main_current > signal_current)
@@ -520,7 +522,15 @@ void CheckDeepMACD(int &long_score, int &short_score)
                 if(EnableDebugLogs) Print("MACD Histogram: Short (+" + (string)Weight_MACD_Histo + " очков)");
             }
         }
+        else
+        {
+            if(EnableDebugLogs) Print("MACD: Недостаточно данных для анализа.");
+        }
         IndicatorRelease(macd_handle);
+    }
+    else
+    {
+        if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для индикатора MACD.");
     }
 }
 
@@ -1133,10 +1143,10 @@ void CheckVWAP(int &long_score, int &short_score)
     }
 }
 
-// --- Функция для поиска уровней Поддержки и Сопротивления по фракталам ---
+// --- Функция для поиска БЛИЖАЙШИХ уровней Поддержки и Сопротивления (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
 bool GetNearestSupportResistance(double &support_level, double &resistance_level)
 {
-    int history_bars = 75; // На скольких последних барах ищем уровни
+    int history_bars = LookbackBars_SR_Div;
     int fractals_handle = iFractals(_Symbol, _Period);
     if(fractals_handle == INVALID_HANDLE) return(false);
 
@@ -1144,36 +1154,45 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
     ArraySetAsSeries(fractals_up_buffer, true);
     ArraySetAsSeries(fractals_down_buffer, true);
 
-    if(CopyBuffer(fractals_handle, 0, 0, history_bars, fractals_up_buffer) < 3 ||
-       CopyBuffer(fractals_handle, 1, 0, history_bars, fractals_down_buffer) < 3)
+    if(CopyBuffer(fractals_handle, 0, 0, history_bars, fractals_up_buffer) < 1 ||
+       CopyBuffer(fractals_handle, 1, 0, history_bars, fractals_down_buffer) < 1)
     {
         IndicatorRelease(fractals_handle);
         return(false);
     }
     
-    // Ищем самый высокий пик (сопротивление) и самую низкую впадину (поддержку)
-    double highest_high = 0;
-    double lowest_low = 999999; // Инициализируем очень большим значением
+    // Ищем самый ПОСЛЕДНИЙ (ближайший по времени) фрактал вверх и вниз
+    double nearest_resistance = 0;
+    double nearest_support = 0;
 
+    // Идем в прошлое от последней закрытой свечи
     for(int i = 3; i < history_bars; i++)
     {
-        if(fractals_up_buffer[i] != EMPTY_VALUE && fractals_up_buffer[i] > highest_high)
+        // Как только нашли первый непустой фрактал вверх, запоминаем его и выходим из поиска
+        if(fractals_up_buffer[i] != EMPTY_VALUE)
         {
-            highest_high = fractals_up_buffer[i];
+            nearest_resistance = fractals_up_buffer[i];
+            break;
         }
-        if(fractals_down_buffer[i] != EMPTY_VALUE && fractals_down_buffer[i] < lowest_low)
+    }
+
+    // То же самое для фрактала вниз
+    for(int i = 3; i < history_bars; i++)
+    {
+        if(fractals_down_buffer[i] != EMPTY_VALUE)
         {
-            lowest_low = fractals_down_buffer[i];
+            nearest_support = fractals_down_buffer[i];
+            break;
         }
     }
 
     IndicatorRelease(fractals_handle);
 
-    // Если уровни найдены, возвращаем их и сообщаем об успехе
-    if(highest_high > 0 && lowest_low < 999999)
+    // Если оба уровня найдены, возвращаем их
+    if(nearest_resistance > 0 && nearest_support > 0)
     {
-        resistance_level = highest_high;
-        support_level = lowest_low;
+        resistance_level = nearest_resistance;
+        support_level = nearest_support;
         return(true);
     }
     
