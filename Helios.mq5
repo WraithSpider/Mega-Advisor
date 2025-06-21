@@ -2,7 +2,7 @@
 //|                                                       Helios.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.48"
+#property version "4.49"
 
 //--- Входные параметры для торговли
 input int    NumberOfTrades        = 1;      // На сколько частей делить сделку (1 = обычная сделка)
@@ -48,13 +48,13 @@ input int    EmaRibbon_SqueezePips  = 15;    // Макс. ширина лент�
 
 //--- Группа: Веса (Очки) для Сигналов ---
 input group "--- Веса (Очки) для Сигналов ---";
-input int Weight_D1_Trend         = 3; // Тренд на D1 (цена vs EMA 50)
+input int Weight_D1_Trend         = 3; // Тренд на D1 (цена vs EMA 50) +
 input int Weight_RSI_Exit         = 2; // RSI: Выход из зон 30/70
 input int Weight_RSI_Zone         = 1; // RSI: Положение относительно уровня 50
 input int Weight_Divergence       = 5; // RSI: Классическая дивергенция по фракталам
-input int Weight_MACD_Cross       = 3; // MACD: Пересечение главной и сигнальной линий
-input int Weight_MACD_State       = 1; // MACD: Состояние (главная выше/ниже сигнальной)
-input int Weight_MACD_Histo       = 1; // MACD: Рост/падение гистограммы (импульс)
+input int Weight_MACD_Cross       = 3; // MACD: Пересечение главной и сигнальной линий +
+input int Weight_MACD_State       = 1; // MACD: Состояние (главная выше/ниже сигнальной) +
+input int Weight_MACD_Histo       = 1; // MACD: Рост/падение гистограммы (импульс) +
 input int Weight_EMA_Cross        = 2; // Пересечение быстрых EMA (12/26)
 input int Weight_SMA_Cross        = 3; // Пересечение долгих SMA (50/200 - Золотой/Мертвый крест)
 input int Weight_WMA_Trend        = 3; // Тренд по WMA(200) (цена выше/ниже)
@@ -305,13 +305,13 @@ void CheckD1Trend(int &long_score, int &short_score)
         {
             if(rates_d1[0].close > ema_d1_buffer[0]) 
             {
-                long_score += 3;
-                if(EnableDebugLogs) Print("D1 Trend - Long (+3 очка)");
+                long_score += Weight_D1_Trend;
+                if(EnableDebugLogs) Print("D1 Trend - Long (+" + (string)Weight_D1_Trend + " очков)");
             }
             else 
             {
-                short_score += 3;
-                if(EnableDebugLogs) Print("D1 Trend - Short (+3 очка)");
+                short_score += Weight_D1_Trend;
+                if(EnableDebugLogs) Print("D1 Trend - Short (+" + (string)Weight_D1_Trend + " очков)");
             }
         }
         IndicatorRelease(ema_d1_handle);
@@ -336,12 +336,12 @@ void CheckDeepRSI(int &long_score, int &short_score)
             // --- 1. Анализ "Возврата из зоны" (+2 очка) ---
             if(rsi_prev < 30 && rsi_current >= 30) 
             {
-                long_score += 2; 
+                long_score += Weight_RSI_Exit; 
                 if(EnableDebugLogs) Print("RSI Exit - Long (+2 очка)"); // << ИЗМЕНЕНИЕ
             }
             if(rsi_prev > 70 && rsi_current <= 70) 
             {
-                short_score += 2; 
+                short_score += Weight_RSI_Exit; 
                 if(EnableDebugLogs) Print("RSI Exit - Short (+2 очка)"); // << ИЗМЕНЕНИЕ
             }
             
@@ -444,77 +444,68 @@ void CheckFractalDivergence(int &long_score, int &short_score)
     IndicatorRelease(fractals_handle);
 }
 
-// --- Функция углубленного анализа MACD  ---
+// --- Функция углубленного анализа MACD с настраиваемыми весами ---
 void CheckDeepMACD(int &long_score, int &short_score)
 {
+    if(Weight_MACD_Cross == 0 && Weight_MACD_State == 0 && Weight_MACD_Histo == 0) return; // Экономим ресурсы, если все веса = 0
+
     int macd_handle = iMACD(_Symbol, _Period, 12, 26, 9, PRICE_CLOSE);
     if(macd_handle != INVALID_HANDLE)
     {
-        // Готовим буферы только для главной и сигнальной линий
-        double macd_main_buffer[], macd_signal_buffer[];
+        double macd_main_buffer[], macd_signal_buffer[], macd_histogram_buffer[];
         int data_to_copy = 3; 
         ArraySetAsSeries(macd_main_buffer, true);
         ArraySetAsSeries(macd_signal_buffer, true);
+        ArraySetAsSeries(macd_histogram_buffer, true);
         
-        // Копируем данные только из существующих буферов 0 и 1
         if(CopyBuffer(macd_handle, 0, 0, data_to_copy, macd_main_buffer) > 0 &&
-           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0)
+           CopyBuffer(macd_handle, 1, 0, data_to_copy, macd_signal_buffer) > 0 &&
+           CopyBuffer(macd_handle, 2, 0, data_to_copy, macd_histogram_buffer) > 0)
         {
-            // Извлекаем значения для свечей
             double main_current = macd_main_buffer[1];
             double main_prev = macd_main_buffer[2];
             double signal_current = macd_signal_buffer[1];
             double signal_prev = macd_signal_buffer[2];
+            double hist_current = macd_histogram_buffer[1];
+            double hist_prev = macd_histogram_buffer[2];
 
-            // --- Рассчитываем гистограмму вручную ---
-            double hist_current = main_current - signal_current;
-            double hist_prev = main_prev - signal_prev;
-
-            // --- 1. Анализ ПЕРЕСЕЧЕНИЯ (+3 очка) ---
+            // --- 1. Анализ ПЕРЕСЕЧЕНИЯ ---
             if(main_prev <= signal_prev && main_current > signal_current)
             {
-                long_score += 3;
-                if(EnableDebugLogs) Print("MACD Crossover: Long (+3 очка)");
+                long_score += Weight_MACD_Cross;
+                if(EnableDebugLogs) Print("MACD Crossover: Long (+" + (string)Weight_MACD_Cross + " очков)");
             }
             if(main_prev >= signal_prev && main_current < signal_current)
             {
-                short_score += 3;
-                if(EnableDebugLogs) Print("MACD Crossover: Short (+3 очка)");
+                short_score += Weight_MACD_Cross;
+                if(EnableDebugLogs) Print("MACD Crossover: Short (+" + (string)Weight_MACD_Cross + " очков)");
             }
     
-            // --- 2. Анализ СОСТОЯНИЯ (+1 очко) ---
+            // --- 2. Анализ СОСТОЯНИЯ ---
             if(main_current > signal_current)
             {
-                long_score++;
-                if(EnableDebugLogs) Print("MACD State: Long (+1 очко)");
+                long_score += Weight_MACD_State;
+                if(EnableDebugLogs) Print("MACD State: Long (+" + (string)Weight_MACD_State + " очков)");
             }
             if(main_current < signal_current)
             {
-                short_score++;
-                if(EnableDebugLogs) Print("MACD State: Short (+1 очко)");
+                short_score += Weight_MACD_State;
+                if(EnableDebugLogs) Print("MACD State: Short (+" + (string)Weight_MACD_State + " очков)");
             }
     
-            // --- 3. Анализ ИМПУЛЬСА ГИСТОГРАММЫ (+1 очко) ---
+            // --- 3. Анализ ИМПУЛЬСА ГИСТОГРАММЫ ---
             if(hist_current > hist_prev)
             {
-                long_score++;
-                if(EnableDebugLogs) Print("MACD Histogram: Long (+1 очко)");
+                long_score += Weight_MACD_Histo;
+                if(EnableDebugLogs) Print("MACD Histogram: Long (+" + (string)Weight_MACD_Histo + " очков)");
             }
             if(hist_current < hist_prev)
             {
-                short_score++;
-                if(EnableDebugLogs) Print("MACD Histogram: Short (+1 очко)");
+                short_score += Weight_MACD_Histo;
+                if(EnableDebugLogs) Print("MACD Histogram: Short (+" + (string)Weight_MACD_Histo + " очков)");
             }
         }
-        else
-        {
-            if(EnableDebugLogs) Print("MACD: Недостаточно данных для анализа на текущей свече.");
-        }
         IndicatorRelease(macd_handle);
-    }
-    else
-    {
-        if(EnableDebugLogs) Print("Ошибка: не удалось создать хэндл для индикатора MACD.");
     }
 }
 
