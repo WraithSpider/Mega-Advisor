@@ -2,7 +2,7 @@
 //|                                                       Helios.mq5 |
 //|                                  © Forex Assistant, Alan Norberg |
 //+------------------------------------------------------------------+
-#property version "4.52"
+#property version "4.53"
 
 //--- 1. Группа: Настройки Торговли и Позиции
 input group "Настройки Торговли и Позиции";
@@ -11,6 +11,7 @@ input int    NumberOfTrades        = 1;      // На сколько частей
 input bool   AllowMultipleTrades   = false;  // Разрешить новую серию ордеров, если старая в рынке?
 input int    MinBarsBetweenTrades  = 4;      // Cooldown: Минимальное кол-во свечей между сделками
 input int    TrailingStopPips      = 50;     // Дистанция трейлинг-стопа в пипсах (0 = выключен)
+input ulong  ExpertMagicNumber   = 00001;  // Уникальный "магический" номер для этого советника
 
 //--- 2. Группа: Настройки SL/TP
 input group "Настройки SL/TP";
@@ -117,6 +118,7 @@ bool IsVolatilityOptimal();
 bool GetNearestSupportResistance(double &support_level, double &resistance_level);
 bool IsTrendStrongADX();
 bool IsSpreadAcceptable();
+bool IsMyPositionOpen();
 
 //+------------------------------------------------------------------+
 //| Стандартные функции советника                                    |
@@ -1142,10 +1144,10 @@ void CheckVWAP(int &long_score, int &short_score)
     }
 }
 
-// --- Функция для поиска БЛИЖАЙШИХ уровней Поддержки и Сопротивления (ИСПРАВЛЕННАЯ ВЕРСИЯ) ---
+// --- Функция для поиска уровней Поддержки и Сопротивления по фракталам ---More actions
 bool GetNearestSupportResistance(double &support_level, double &resistance_level)
 {
-    int history_bars = LookbackBars_SR_Div;
+    int history_bars = 75; // На скольких последних барах ищем уровни
     int fractals_handle = iFractals(_Symbol, _Period);
     if(fractals_handle == INVALID_HANDLE) return(false);
 
@@ -1153,48 +1155,39 @@ bool GetNearestSupportResistance(double &support_level, double &resistance_level
     ArraySetAsSeries(fractals_up_buffer, true);
     ArraySetAsSeries(fractals_down_buffer, true);
 
-    if(CopyBuffer(fractals_handle, 0, 0, history_bars, fractals_up_buffer) < 1 ||
-       CopyBuffer(fractals_handle, 1, 0, history_bars, fractals_down_buffer) < 1)
+    if(CopyBuffer(fractals_handle, 0, 0, history_bars, fractals_up_buffer) < 3 ||
+       CopyBuffer(fractals_handle, 1, 0, history_bars, fractals_down_buffer) < 3)
     {
         IndicatorRelease(fractals_handle);
         return(false);
     }
-    
-    // Ищем самый ПОСЛЕДНИЙ (ближайший по времени) фрактал вверх и вниз
-    double nearest_resistance = 0;
-    double nearest_support = 0;
 
-    // Идем в прошлое от последней закрытой свечи
+    // Ищем самый высокий пик (сопротивление) и самую низкую впадину (поддержку)
+    double highest_high = 0;
+    double lowest_low = 999999; // Инициализируем очень большим значением
+
     for(int i = 3; i < history_bars; i++)
     {
-        // Как только нашли первый непустой фрактал вверх, запоминаем его и выходим из поиска
-        if(fractals_up_buffer[i] != EMPTY_VALUE)
+        if(fractals_up_buffer[i] != EMPTY_VALUE && fractals_up_buffer[i] > highest_high)
         {
-            nearest_resistance = fractals_up_buffer[i];
-            break;
+            highest_high = fractals_up_buffer[i];
         }
-    }
-
-    // То же самое для фрактала вниз
-    for(int i = 3; i < history_bars; i++)
-    {
-        if(fractals_down_buffer[i] != EMPTY_VALUE)
+        if(fractals_down_buffer[i] != EMPTY_VALUE && fractals_down_buffer[i] < lowest_low)
         {
-            nearest_support = fractals_down_buffer[i];
-            break;
+            lowest_low = fractals_down_buffer[i];
         }
     }
 
     IndicatorRelease(fractals_handle);
 
-    // Если оба уровня найдены, возвращаем их
-    if(nearest_resistance > 0 && nearest_support > 0)
+    // Если уровни найдены, возвращаем их и сообщаем об успехе
+    if(highest_high > 0 && lowest_low < 999999)
     {
-        resistance_level = nearest_resistance;
-        support_level = nearest_support;
+        resistance_level = highest_high;
+        support_level = lowest_low;
         return(true);
     }
-    
+
     return(false);
 }
 
@@ -1897,6 +1890,27 @@ void CheckEmaRibbonSqueeze(int &long_score, int &short_score)
         }
     }
 }
+
+// --- Функция проверяет, есть ли позиция, открытая ИМЕННО ЭТИМ советником ---
+bool IsMyPositionOpen()
+{
+    // Проходим по всем открытым позициям
+    for(int i = PositionsTotal() - 1; i >= 0; i--)
+    {
+        // Пытаемся получить информацию о позиции
+        if(PositionGetTicket(i))
+        {
+            // Проверяем, совпадают ли символ И магическое число
+            if(PositionGetString(POSITION_SYMBOL) == _Symbol && 
+               PositionGetInteger(POSITION_MAGIC) == ExpertMagicNumber)
+            {
+                return true; // Нашли нашу позицию!
+            }
+        }
+    }
+    return false; // Позиций с нашим магическим номером не найдено
+}
+
 
 // --- Функция для обновления панели на графике ---
 void UpdateDashboard(int long_score, int short_score, double long_prob, double short_prob){
