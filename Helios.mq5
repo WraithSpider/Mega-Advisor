@@ -215,7 +215,7 @@ void OnTick()
         {
             // Сообщение выводится из самой функции IsSpreadAcceptable
         }
-        else if(AllowMultipleTrades == false && PositionSelect(_Symbol) == true)
+        else if(AllowMultipleTrades == false && IsMyPositionOpen() == true)
         {
             if(EnableDebugLogs) Print("Торговое решение пропущено: позиция уже есть.");
             CheckTrailingStop(); // Если позиция есть, проверяем трейлинг-стоп
@@ -255,7 +255,7 @@ void OnTick()
                             double take_profit = price + (profit_step * (i + 1));
 
                             r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_BUY;
-                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Long part "+(string)(i+1);
+                            r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=ExpertMagicNumber; r.comment="Long part "+(string)(i+1);
                             if(!OrderSend(r,res)) { if(EnableDebugLogs) Print("Ошибка BUY: %d", res.retcode); }
                             else { if(EnableDebugLogs) Print("BUY #%d отправлен с TP=%.5f", i+1, take_profit); barsSinceLastTrade = 0; }
                         }
@@ -286,7 +286,7 @@ void OnTick()
                            double take_profit = price - (profit_step * (i + 1));
                            
                            r.action=TRADE_ACTION_DEAL; r.symbol=_Symbol; r.volume=partial_lot; r.type=ORDER_TYPE_SELL;
-                           r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=12345; r.comment="Short by MAA";
+                           r.price=price; r.sl=stop_loss; r.tp=take_profit; r.magic=ExpertMagicNumber; r.comment="Short by Helios";
                            if(!OrderSend(r,res)) { if(EnableDebugLogs) Print("Ошибка SELL: %d", res.retcode); }
                            else { if(EnableDebugLogs) Print("SELL #%d отправлен с TP=%.5f", i+1, take_profit); barsSinceLastTrade = 0; }
                         }
